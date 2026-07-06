@@ -52,18 +52,25 @@ Argo CD が重い理由の一つはコンポーネント分割。Wataridori は�
 ## リポジトリ構成(モノレポ)
 
 ```
-/cmd/wataridori/      # main(server + controller + CLI)
+/cmd/wataridori/      # main() のみ
 /internal/
-  controller/         # reconcile loop
+  cli/                # cobra コマンド層(フラグ処理・表示のみ。ロジックを持たない)
+  core/               # ユースケース層(apply / promote / rollback / status の手順)
+  manifest/           # マニフェスト YAML の型・loader・validator
+  controller/         # reconcile loop(Phase 2)
   cloudrun/           # Admin API ラッパ
   registry/           # digest 解決・イメージコピー
   gitops/             # Git 監視・昇格 PR 作成
   store/              # SQLite
-/proto/               # Connect RPC 定義(API の単一ソース)
-/web/                 # TypeScript フロント
+/proto/               # Connect RPC 定義(API の単一ソース、Phase 2〜)
+/web/                 # TypeScript フロント(Phase 2〜)
 /docs/                # 設計ドキュメント・quickstart
 /examples/            # サンプルのマニフェストリポジトリ
 ```
+
+依存方向は一方通行: `cli → core → 下位パッケージ`(Phase 2 で `server → core` が並ぶ)。
+core の Request/Result 型は構造化データとして定義し、表示は cli 層・シリアライズは
+API 層の責務とする。これにより CLI と Web UI が同一のユースケース実装を共有する。
 
 ## Cloud Run 特化で活きる設計ポイント
 

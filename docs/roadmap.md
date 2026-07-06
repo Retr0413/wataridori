@@ -6,6 +6,8 @@ MVP を絞ることが最重要。Phase 1 を早く出して README と quicksta
 ## Phase 1 — CLI だけの MVP(目標: 2〜3 週間)
 
 UI なし。これだけで既存の手動昇格プログラムを置き換えられる状態にする。
+詳細仕様は [spec/phase1-cli.md](spec/phase1-cli.md)、実装タスクは
+[GitHub Milestone "Phase 1 — CLI MVP"](https://github.com/Retr0413/wataridori/milestone/1) を正とする。
 
 - [ ] マニフェスト YAML スキーマの設計(環境定義・更新ポリシー・イメージ digest)
 - [ ] `wataridori apply` — マニフェストどおりに Cloud Run へデプロイ
