@@ -1,12 +1,27 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/Retr0413/wataridori/internal/cli"
 )
 
 func main() {
-	// CLI entrypoint is wired up in internal/cli (Phase 1, issue #7).
-	fmt.Fprintln(os.Stderr, "wataridori: not implemented yet — see https://github.com/Retr0413/wataridori/milestone/1")
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	err := cli.Execute(ctx)
+	if err == nil {
+		return
+	}
+	if errors.Is(err, cli.ErrDrift) {
+		os.Exit(2)
+	}
+	fmt.Fprintln(os.Stderr, "Error:", err)
 	os.Exit(1)
 }
