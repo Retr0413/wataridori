@@ -1,0 +1,21 @@
+# Go
+/bin/
+/dist/
+*.test
+coverage.out
+
+# Node / frontend
+node_modules/
+/web/dist/
+
+# Local state
+*.sqlite
+*.db
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local Claude settings (keep skills & shared config tracked)
+.claude/settings.local.json
