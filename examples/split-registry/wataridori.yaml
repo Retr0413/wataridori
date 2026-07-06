@@ -1,0 +1,20 @@
+version: 1
+environments:
+  dev:
+    policy: auto
+    branch: develop
+    gcp:
+      project: my-app-dev
+      region: asia-northeast1
+    services: environments/dev
+  prod:
+    policy: manual
+    promoteFrom: dev
+    gcp:
+      project: my-app-prod
+      region: asia-northeast1
+    services: environments/prod
+    # prod は専用の Artifact Registry を持つ。promote 時に dev のイメージが
+    # digest 指定でここへコピーされる(コピー後に digest 一致を検証)
+    imageCopy:
+      to: asia-northeast1-docker.pkg.dev/my-app-prod/images

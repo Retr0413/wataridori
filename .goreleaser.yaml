@@ -1,0 +1,43 @@
+version: 2
+project_name: wataridori
+
+builds:
+  - main: ./cmd/wataridori
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/Retr0413/wataridori/internal/cli.Version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+kos:
+  - repositories:
+      - ghcr.io/retr0413/wataridori
+    tags:
+      - "{{ .Version }}"
+      - latest
+    bare: true
+    base_image: gcr.io/distroless/static:nonroot
+    platforms:
+      - linux/amd64
+      - linux/arm64
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+
+release:
+  draft: false
+  prerelease: auto

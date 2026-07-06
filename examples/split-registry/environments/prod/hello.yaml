@@ -1,0 +1,12 @@
+name: hello
+# イメージパスは prod の AR(imageCopy.to 配下)。promote は digest 部分だけを書き換える
+image: asia-northeast1-docker.pkg.dev/my-app-prod/images/hello@sha256:0000000000000000000000000000000000000000000000000000000000000000
+env:
+  - name: LOG_LEVEL
+    value: warn
+resources:
+  cpu: "1"
+  memory: 512Mi
+scaling:
+  min: 1
+  max: 10
