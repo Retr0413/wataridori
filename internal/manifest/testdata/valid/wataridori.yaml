@@ -1,0 +1,18 @@
+version: 1
+environments:
+  dev:
+    policy: auto
+    branch: develop
+    gcp:
+      project: my-app-dev
+      region: asia-northeast1
+    services: environments/dev
+  prod:
+    policy: manual
+    promoteFrom: dev
+    gcp:
+      project: my-app-prod
+      region: asia-northeast1
+    services: environments/prod
+    imageCopy:
+      to: asia-northeast1-docker.pkg.dev/my-app-prod/images

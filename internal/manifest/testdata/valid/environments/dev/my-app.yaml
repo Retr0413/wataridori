@@ -1,0 +1,13 @@
+# dev environment of my-app
+name: my-app
+image: asia-northeast1-docker.pkg.dev/my-app-dev/images/my-app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+env:
+  - name: LOG_LEVEL
+    value: debug
+resources:
+  cpu: "1"
+  memory: 512Mi
+scaling:
+  min: 0
+  max: 10
+serviceAccount: my-app@my-app-dev.iam.gserviceaccount.com
