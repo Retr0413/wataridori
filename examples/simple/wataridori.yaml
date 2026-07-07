@@ -1,0 +1,16 @@
+version: 1
+environments:
+  dev:
+    policy: auto            # Phase 2 で develop ブランチに自動追従(Phase 1 では apply を手動/CI 実行)
+    branch: develop
+    gcp:
+      project: my-app-dev
+      region: asia-northeast1
+    services: environments/dev
+  prod:
+    policy: manual          # promote でのみ更新
+    promoteFrom: dev
+    gcp:
+      project: my-app-prod
+      region: asia-northeast1
+    services: environments/prod

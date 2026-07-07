@@ -1,0 +1,11 @@
+name: hello
+image: asia-northeast1-docker.pkg.dev/my-app-shared/images/hello@sha256:0000000000000000000000000000000000000000000000000000000000000000
+env:
+  - name: LOG_LEVEL
+    value: warn
+resources:
+  cpu: "1"
+  memory: 512Mi
+scaling:
+  min: 1
+  max: 10
