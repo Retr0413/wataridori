@@ -6,6 +6,13 @@ linters:
     - misspell
     - unconvert
     - unparam
+  settings:
+    errcheck:
+      # Terminal writes: failing stdout/stderr is not actionable.
+      exclude-functions:
+        - fmt.Fprintln
+        - fmt.Fprintf
+        - fmt.Fprint
 
 formatters:
   enable:
