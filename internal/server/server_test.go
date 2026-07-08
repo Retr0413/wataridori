@@ -1,0 +1,196 @@
+package server
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"connectrpc.com/connect"
+
+	v1 "github.com/Retr0413/wataridori/gen/wataridori/v1"
+	"github.com/Retr0413/wataridori/internal/core"
+	"github.com/Retr0413/wataridori/internal/store"
+)
+
+// fakeUseCases records the requests it receives and returns canned results.
+type fakeUseCases struct {
+	statusReq   core.StatusRequest
+	statusRes   *core.StatusResult
+	applyReq    core.ApplyRequest
+	applyRes    *core.ApplyResult
+	promoteReq  core.PromoteRequest
+	promotePlan *core.PromotePlan
+	promoteRes  *core.PromoteResult
+	promoteErr  error
+	historyRes  *core.HistoryResult
+
+	planPromoteCalls, execPromoteCalls int
+}
+
+func (f *fakeUseCases) Status(_ context.Context, req core.StatusRequest) (*core.StatusResult, error) {
+	f.statusReq = req
+	return f.statusRes, nil
+}
+
+func (f *fakeUseCases) Apply(_ context.Context, req core.ApplyRequest) (*core.ApplyResult, error) {
+	f.applyReq = req
+	return f.applyRes, nil
+}
+
+func (f *fakeUseCases) PlanPromote(_ context.Context, req core.PromoteRequest) (*core.PromotePlan, error) {
+	f.planPromoteCalls++
+	f.promoteReq = req
+	if f.promoteErr != nil {
+		return nil, f.promoteErr
+	}
+	return f.promotePlan, nil
+}
+
+func (f *fakeUseCases) ExecutePromote(_ context.Context, _ *core.PromotePlan) (*core.PromoteResult, error) {
+	f.execPromoteCalls++
+	return f.promoteRes, nil
+}
+
+func (f *fakeUseCases) PlanRollback(_ context.Context, _ core.RollbackRequest) (*core.RollbackPlan, error) {
+	return &core.RollbackPlan{}, nil
+}
+
+func (f *fakeUseCases) ExecuteRollback(_ context.Context, _ *core.RollbackPlan) (*core.RollbackResult, error) {
+	return &core.RollbackResult{}, nil
+}
+
+func (f *fakeUseCases) ListHistory(_ context.Context, _ core.HistoryRequest) (*core.HistoryResult, error) {
+	return f.historyRes, nil
+}
+
+// srv wires the fake behind a Server, tracking cleanup invocation.
+func srv(f *fakeUseCases, cleaned *bool) *Server {
+	return New(func(context.Context) (UseCases, func(), error) {
+		return f, func() { *cleaned = true }, nil
+	})
+}
+
+func TestStatus(t *testing.T) {
+	f := &fakeUseCases{statusRes: &core.StatusResult{
+		Drift: true,
+		Services: []core.ServiceStatus{{
+			Env: "prod", Service: "api", DesiredDigest: "sha256:abc",
+			State: core.StateDrift, TrafficPct: 100,
+		}},
+	}}
+	cleaned := false
+	res, err := srv(f, &cleaned).Status(context.Background(),
+		connect.NewRequest(&v1.StatusRequest{Env: "prod"}))
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if f.statusReq.Env != "prod" {
+		t.Errorf("env not forwarded: %q", f.statusReq.Env)
+	}
+	if !cleaned {
+		t.Error("cleanup not called")
+	}
+	if !res.Msg.GetDrift() || len(res.Msg.GetServices()) != 1 {
+		t.Fatalf("unexpected response: %+v", res.Msg)
+	}
+	got := res.Msg.GetServices()[0]
+	if got.GetState() != v1.SyncState_SYNC_STATE_DRIFT {
+		t.Errorf("state = %v, want DRIFT", got.GetState())
+	}
+	if got.GetTrafficPercent() != 100 {
+		t.Errorf("traffic = %d, want 100", got.GetTrafficPercent())
+	}
+}
+
+func TestApplyTimeoutDefault(t *testing.T) {
+	f := &fakeUseCases{applyRes: &core.ApplyResult{Env: "dev"}}
+	cleaned := false
+	// timeout_seconds omitted -> server fills the default.
+	_, err := srv(f, &cleaned).Apply(context.Background(),
+		connect.NewRequest(&v1.ApplyRequest{Env: "dev", DryRun: true}))
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if f.applyReq.Timeout != core.DefaultApplyTimeout {
+		t.Errorf("timeout = %v, want default %v", f.applyReq.Timeout, core.DefaultApplyTimeout)
+	}
+	if !f.applyReq.DryRun {
+		t.Error("dryRun not forwarded")
+	}
+}
+
+func TestApplyTimeoutForwarded(t *testing.T) {
+	f := &fakeUseCases{applyRes: &core.ApplyResult{}}
+	cleaned := false
+	_, err := srv(f, &cleaned).Apply(context.Background(),
+		connect.NewRequest(&v1.ApplyRequest{Env: "dev", TimeoutSeconds: 30}))
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if f.applyReq.Timeout != 30*time.Second {
+		t.Errorf("timeout = %v, want 30s", f.applyReq.Timeout)
+	}
+}
+
+func TestExecutePromotePlansThenExecutes(t *testing.T) {
+	f := &fakeUseCases{
+		promotePlan: &core.PromotePlan{From: "dev", To: "prod"},
+		promoteRes:  &core.PromoteResult{From: "dev", To: "prod", CommitID: "1a2b3c"},
+	}
+	cleaned := false
+	res, err := srv(f, &cleaned).ExecutePromote(context.Background(),
+		connect.NewRequest(&v1.ExecutePromoteRequest{From: "dev", To: "prod"}))
+	if err != nil {
+		t.Fatalf("ExecutePromote: %v", err)
+	}
+	if f.planPromoteCalls != 1 || f.execPromoteCalls != 1 {
+		t.Errorf("plan=%d exec=%d, want 1/1", f.planPromoteCalls, f.execPromoteCalls)
+	}
+	if res.Msg.GetCommitId() != "1a2b3c" {
+		t.Errorf("commit = %q, want 1a2b3c", res.Msg.GetCommitId())
+	}
+}
+
+func TestExecutePromotePlanErrorSkipsExecute(t *testing.T) {
+	f := &fakeUseCases{promoteErr: &core.UnknownServiceError{Env: "prod", Service: "api"}}
+	cleaned := false
+	_, err := srv(f, &cleaned).ExecutePromote(context.Background(),
+		connect.NewRequest(&v1.ExecutePromoteRequest{To: "prod", Service: "api"}))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want InvalidArgument", connect.CodeOf(err))
+	}
+	if f.execPromoteCalls != 0 {
+		t.Error("ExecutePromote called despite plan error")
+	}
+}
+
+func TestHistoryConversion(t *testing.T) {
+	ts := time.Date(2026, 7, 7, 10, 12, 0, 0, time.UTC)
+	f := &fakeUseCases{historyRes: &core.HistoryResult{Entries: []store.Entry{{
+		ID: 1, Time: ts, Actor: "arima", Action: store.ActionPromote,
+		Env: "prod", Service: "api", Digest: "sha256:abc",
+		Detail: map[string]string{"commit": "1a2b3c"},
+	}}}}
+	cleaned := false
+	res, err := srv(f, &cleaned).History(context.Background(),
+		connect.NewRequest(&v1.HistoryRequest{Env: "prod", Limit: 10}))
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	if len(res.Msg.GetEntries()) != 1 {
+		t.Fatalf("entries = %d, want 1", len(res.Msg.GetEntries()))
+	}
+	e := res.Msg.GetEntries()[0]
+	if e.GetAction() != v1.Action_ACTION_PROMOTE {
+		t.Errorf("action = %v, want PROMOTE", e.GetAction())
+	}
+	if !e.GetTime().AsTime().Equal(ts) {
+		t.Errorf("time = %v, want %v", e.GetTime().AsTime(), ts)
+	}
+	if e.GetDetail()["commit"] != "1a2b3c" {
+		t.Errorf("detail lost: %v", e.GetDetail())
+	}
+}

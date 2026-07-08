@@ -52,6 +52,7 @@ func newRootCmd() *cobra.Command {
 		newRollbackCmd(g),
 		newStatusCmd(g),
 		newHistoryCmd(g),
+		newServeCmd(g),
 		newVersionCmd(),
 	)
 	return root
