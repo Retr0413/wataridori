@@ -1,0 +1,207 @@
+syntax = "proto3";
+
+// Package wataridori.v1 is the single source of truth for the Wataridori API.
+// Messages map 1:1 onto the use-case types in internal/core so that the CLI
+// (today) and the Connect RPC server / Web UI (Phase 2) share one contract.
+package wataridori.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// DeploymentService exposes the Phase 1 use cases over Connect RPC.
+// Promote and rollback are two-phase (Plan then Execute); the plan is the
+// preview shown before a confirm prompt, and Execute re-derives it from the
+// same request so the call stays stateless.
+service DeploymentService {
+  // Status compares desired state (Git manifests) with observed state
+  // (Cloud Run). See docs/spec/phase1-cli.md §2.4.
+  rpc Status(StatusRequest) returns (StatusResponse) {}
+
+  // Apply deploys an environment's manifests to Cloud Run. §2.1.
+  rpc Apply(ApplyRequest) returns (ApplyResponse) {}
+
+  // PlanPromote previews the digest diff without writing anything. §2.2.
+  rpc PlanPromote(PlanPromoteRequest) returns (PlanPromoteResponse) {}
+
+  // ExecutePromote copies digests into the target manifests and commits. §2.2.
+  rpc ExecutePromote(ExecutePromoteRequest) returns (ExecutePromoteResponse) {}
+
+  // PlanRollback previews the previous revision to switch back to. §2.3.
+  rpc PlanRollback(PlanRollbackRequest) returns (PlanRollbackResponse) {}
+
+  // ExecuteRollback switches traffic back to a previous revision. §2.3.
+  rpc ExecuteRollback(ExecuteRollbackRequest) returns (ExecuteRollbackResponse) {}
+
+  // History lists recorded operations, newest first. §2.5.
+  rpc History(HistoryRequest) returns (HistoryResponse) {}
+}
+
+// SyncState classifies one service's desired-vs-actual comparison.
+enum SyncState {
+  SYNC_STATE_UNSPECIFIED = 0;
+  SYNC_STATE_IN_SYNC = 1;
+  SYNC_STATE_DRIFT = 2;
+  SYNC_STATE_NOT_DEPLOYED = 3;
+}
+
+// Action is the recorded operation kind for history entries.
+enum Action {
+  ACTION_UNSPECIFIED = 0;
+  ACTION_APPLY = 1;
+  ACTION_PROMOTE = 2;
+  ACTION_ROLLBACK = 3;
+}
+
+// --- Status ---------------------------------------------------------------
+
+message StatusRequest {
+  // Empty env means all environments.
+  string env = 1;
+}
+
+message StatusResponse {
+  repeated ServiceStatus services = 1;
+  // drift is true when any service is not in sync (exit code 2 with --check).
+  bool drift = 2;
+}
+
+// ServiceStatus carries the CLI table columns plus the fields the Phase 2 UI
+// needs (traffic, ready reason, deep links).
+message ServiceStatus {
+  string env = 1;
+  string service = 2;
+  string desired_image = 3;
+  string desired_digest = 4;
+  string actual_image = 5;
+  string actual_digest = 6;
+  string revision = 7;
+  SyncState state = 8;
+  bool ready = 9;
+  string ready_message = 10;
+  int32 traffic_percent = 11;
+  string url = 12;
+  string console_url = 13;
+}
+
+// --- Apply ----------------------------------------------------------------
+
+message ApplyRequest {
+  string env = 1;
+  string service = 2; // optional filter
+  bool dry_run = 3;
+  // timeout_seconds bounds the wait for a revision to become ready.
+  // 0 means the server default (5 minutes).
+  int32 timeout_seconds = 4;
+}
+
+message ApplyResponse {
+  string env = 1;
+  bool dry_run = 2;
+  repeated ApplyServiceResult services = 3;
+}
+
+message ApplyServiceResult {
+  string service = 1;
+  string desired_image = 2;
+  // actual_image is what served traffic before this apply ("" = new service).
+  string actual_image = 3;
+  // revision is what serves after the apply (empty on dry-run).
+  string revision = 4;
+  string url = 5;
+  // in_sync means desired == actual.
+  bool in_sync = 6;
+}
+
+// --- Promote --------------------------------------------------------------
+
+message PlanPromoteRequest {
+  string from = 1; // empty means the target's promoteFrom
+  string to = 2;
+  string service = 3; // optional filter
+}
+
+message PlanPromoteResponse {
+  string from = 1;
+  string to = 2;
+  // Empty items means everything is already promoted (no-op).
+  repeated PromoteItem items = 3;
+}
+
+message ExecutePromoteRequest {
+  string from = 1;
+  string to = 2;
+  string service = 3;
+}
+
+message ExecutePromoteResponse {
+  string from = 1;
+  string to = 2;
+  string commit_id = 3;
+  repeated PromoteItem items = 4;
+}
+
+message PromoteItem {
+  string service = 1;
+  // from_image is the digest-pinned source reference (copy source).
+  string from_image = 2;
+  // old_image / new_image are the target manifest's image before and after.
+  string old_image = 3;
+  string new_image = 4;
+  // needs_copy is set when the target environment configures imageCopy.
+  bool needs_copy = 5;
+}
+
+// --- Rollback -------------------------------------------------------------
+
+message PlanRollbackRequest {
+  string env = 1;
+  string service = 2; // optional filter
+  // revision pins the rollback target explicitly (single service only).
+  string revision = 3;
+}
+
+message PlanRollbackResponse {
+  string env = 1;
+  repeated RollbackItem items = 2;
+}
+
+message ExecuteRollbackRequest {
+  string env = 1;
+  string service = 2;
+  string revision = 3;
+}
+
+message ExecuteRollbackResponse {
+  string env = 1;
+  repeated RollbackItem items = 2;
+}
+
+message RollbackItem {
+  string service = 1;
+  string current_revision = 2;
+  string current_image = 3;
+  string target_revision = 4;
+  string target_image = 5;
+}
+
+// --- History --------------------------------------------------------------
+
+message HistoryRequest {
+  string env = 1; // optional filter
+  int32 limit = 2;
+}
+
+message HistoryResponse {
+  repeated HistoryEntry entries = 1;
+}
+
+// HistoryEntry mirrors internal/store.Entry (docs/spec/phase1-cli.md §3).
+message HistoryEntry {
+  int64 id = 1;
+  google.protobuf.Timestamp time = 2;
+  string actor = 3;
+  Action action = 4;
+  string env = 5;
+  string service = 6;
+  string digest = 7;
+  map<string, string> detail = 8;
+}
