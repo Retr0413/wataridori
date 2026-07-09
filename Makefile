@@ -1,4 +1,4 @@
-.PHONY: gen gen-check build test lint
+.PHONY: gen gen-check web-build build test lint
 
 # Code-generation tool versions are pinned in tools.go / go.mod.
 BIN := $(shell go env GOPATH)/bin
@@ -18,7 +18,10 @@ tools:
 gen-check: gen
 	git diff --exit-code -- gen/
 
-build:
+web-build:
+	npm --prefix web run build
+
+build: web-build
 	go build ./...
 
 test:

@@ -19,6 +19,7 @@ import (
 	"github.com/Retr0413/wataridori/internal/manifest"
 	"github.com/Retr0413/wataridori/internal/registry"
 	"github.com/Retr0413/wataridori/internal/server"
+	"github.com/Retr0413/wataridori/web"
 )
 
 func newServeCmd(g *globalFlags) *cobra.Command {
@@ -99,6 +100,7 @@ func runServe(cmd *cobra.Command, g *globalFlags, opts serveOptions) error {
 	path, handler := srv.Handler()
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
+	mux.Handle("/", web.Handler())
 
 	var ctrl *controller.Controller
 	if opts.reconcile {

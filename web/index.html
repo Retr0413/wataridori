@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wataridori</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Wataridori</p>
+        <h1>Cloud Run Deployments</h1>
+      </div>
+      <div class="actions">
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel status-panel" aria-labelledby="status-title">
+        <div class="panel-header">
+          <div>
+            <h2 id="status-title">Status</h2>
+            <p>Desired manifests compared with the Cloud Run revision serving traffic.</p>
+          </div>
+          <label class="field compact">
+            <span>Environment</span>
+            <input id="status-env" type="text" placeholder="all">
+          </label>
+        </div>
+        <div id="status-summary" class="summary">Not loaded</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Env</th>
+                <th>Service</th>
+                <th>Desired</th>
+                <th>Actual</th>
+                <th>Revision</th>
+                <th>Traffic</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody id="status-rows">
+              <tr><td colspan="7" class="empty">Load status to inspect services.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="grid">
+        <form id="promote-form" class="panel" aria-labelledby="promote-title">
+          <div class="panel-header stacked">
+            <h2 id="promote-title">Promotion Plan</h2>
+            <p>Preview digest movement before writing a promotion commit.</p>
+          </div>
+          <label class="field">
+            <span>From</span>
+            <input id="promote-from" type="text" placeholder="dev">
+          </label>
+          <label class="field">
+            <span>To</span>
+            <input id="promote-to" type="text" placeholder="prod" required>
+          </label>
+          <label class="field">
+            <span>Service</span>
+            <input id="promote-service" type="text" placeholder="all">
+          </label>
+          <button type="submit">Plan Promote</button>
+          <div id="promote-result" class="result">No plan requested.</div>
+        </form>
+
+        <form id="apply-form" class="panel" aria-labelledby="apply-title">
+          <div class="panel-header stacked">
+            <h2 id="apply-title">Apply Dry Run</h2>
+            <p>Preview create/update work without deploying.</p>
+          </div>
+          <label class="field">
+            <span>Environment</span>
+            <input id="apply-env" type="text" placeholder="dev" required>
+          </label>
+          <label class="field">
+            <span>Service</span>
+            <input id="apply-service" type="text" placeholder="all">
+          </label>
+          <button type="submit">Dry Run</button>
+          <div id="apply-result" class="result">No dry run requested.</div>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="history-title">
+        <div class="panel-header">
+          <div>
+            <h2 id="history-title">History</h2>
+            <p>Recent local apply, promote, and rollback records.</p>
+          </div>
+          <label class="field compact">
+            <span>Environment</span>
+            <input id="history-env" type="text" placeholder="all">
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Actor</th>
+                <th>Action</th>
+                <th>Env</th>
+                <th>Service</th>
+                <th>Digest</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody id="history-rows">
+              <tr><td colspan="7" class="empty">Load history to inspect records.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/dist/main.js"></script>
+  </body>
+</html>

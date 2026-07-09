@@ -1,7 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -99,6 +103,63 @@ func TestStatus(t *testing.T) {
 	}
 	if got.GetTrafficPercent() != 100 {
 		t.Errorf("traffic = %d, want 100", got.GetTrafficPercent())
+	}
+}
+
+func TestStatusConnectJSON(t *testing.T) {
+	f := &fakeUseCases{statusRes: &core.StatusResult{
+		Drift: true,
+		Services: []core.ServiceStatus{{
+			Env: "prod", Service: "api", DesiredImage: "repo/api@sha256:abc",
+			ActualImage: "repo/api@sha256:def", State: core.StateDrift,
+		}},
+	}}
+	cleaned := false
+	path, handler := srv(f, &cleaned).Handler()
+	mux := http.NewServeMux()
+	mux.Handle(path, handler)
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	body := bytes.NewBufferString(`{"env":"prod"}`)
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/wataridori.v1.DeploymentService/Status", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Connect-Protocol-Version", "1")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+
+	var msg struct {
+		Drift    bool `json:"drift"`
+		Services []struct {
+			Env     string `json:"env"`
+			Service string `json:"service"`
+			State   string `json:"state"`
+		} `json:"services"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&msg); err != nil {
+		t.Fatal(err)
+	}
+	if !msg.Drift || len(msg.Services) != 1 {
+		t.Fatalf("unexpected response: %+v", msg)
+	}
+	if msg.Services[0].State != "SYNC_STATE_DRIFT" {
+		t.Errorf("state = %q, want SYNC_STATE_DRIFT", msg.Services[0].State)
+	}
+	if f.statusReq.Env != "prod" {
+		t.Errorf("env not forwarded: %q", f.statusReq.Env)
+	}
+	if !cleaned {
+		t.Error("cleanup not called")
 	}
 }
 
