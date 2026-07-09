@@ -2,6 +2,9 @@
 
 ## 全体像
 
+詳細な昇格・apply・rollback・controller の流れは
+[system-flow.md](system-flow.md) にまとめる。
+
 ```
 ┌─ Web UI (TypeScript / React) ──┐
 │  環境一覧・昇格ボタン・承認・   │
