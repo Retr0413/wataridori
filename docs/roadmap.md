@@ -2,6 +2,7 @@
 
 MVP を絞ることが最重要。Phase 1 を早く出して README と quickstart を磨く方が、
 機能を積むより OSS としては先。
+Phase 1 後の追加機能候補と優先順位は [future-features.md](future-features.md) にまとめる。
 
 ## Phase 1 — CLI だけの MVP(目標: 2〜3 週間)
 

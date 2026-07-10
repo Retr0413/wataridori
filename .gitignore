@@ -7,11 +7,15 @@ coverage.out
 
 # Node / frontend
 node_modules/
-/web/dist/
 
 # Local state
 *.sqlite
 *.db
+.terraform/
+*.tfstate
+*.tfstate.*
+/infra/test-gcp/generated/
+/infra
 
 # OS / editor
 .DS_Store
