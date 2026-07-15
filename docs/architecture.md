@@ -4,6 +4,10 @@
 
 詳細な昇格・apply・rollback・controller の流れは
 [system-flow.md](system-flow.md) にまとめる。
+Wataridori の基本概念と用語は
+[concepts-and-glossary.md](concepts-and-glossary.md) にまとめる。
+GitOps を維持した Cloud Run 管理機能の拡張方針は
+[gitops-cloudrun-management.md](gitops-cloudrun-management.md) にまとめる。
 
 ```
 ┌─ Web UI (TypeScript / React) ──┐

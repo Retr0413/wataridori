@@ -15,6 +15,7 @@ import (
 // *core.Engine satisfies it; tests inject a fake.
 type UseCases interface {
 	Status(context.Context, core.StatusRequest) (*core.StatusResult, error)
+	Inventory(context.Context, core.InventoryRequest) (*core.InventoryResult, error)
 	Apply(context.Context, core.ApplyRequest) (*core.ApplyResult, error)
 	PlanPromote(context.Context, core.PromoteRequest) (*core.PromotePlan, error)
 	ExecutePromote(context.Context, *core.PromotePlan) (*core.PromoteResult, error)
@@ -68,6 +69,20 @@ func (s *Server) Status(ctx context.Context, req *connect.Request[v1.StatusReque
 		return nil, rpcError(err)
 	}
 	return connect.NewResponse(statusToProto(res)), nil
+}
+
+func (s *Server) Inventory(ctx context.Context, req *connect.Request[v1.InventoryRequest]) (*connect.Response[v1.InventoryResponse], error) {
+	uc, cleanup, err := s.use(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	res, err := uc.Inventory(ctx, core.InventoryRequest{Env: req.Msg.GetEnv()})
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return connect.NewResponse(inventoryToProto(res)), nil
 }
 
 func (s *Server) Apply(ctx context.Context, req *connect.Request[v1.ApplyRequest]) (*connect.Response[v1.ApplyResponse], error) {

@@ -79,6 +79,30 @@ func (c *Client) GetService(ctx context.Context, env *manifest.Environment, name
 	return c.deployed(ctx, env, name, svc)
 }
 
+// ListServices returns every Cloud Run service in an environment's
+// project/region. It is read-only and used to find unmanaged services.
+func (c *Client) ListServices(ctx context.Context, env *manifest.Environment) ([]Deployed, error) {
+	it := c.services.ListServices(ctx, &runpb.ListServicesRequest{Parent: ParentName(env)})
+	var services []Deployed
+	for {
+		svc, err := it.Next()
+		if err != nil {
+			if isIteratorDone(err) {
+				break
+			}
+			return nil, err
+		}
+		name := shortName(svc.GetName())
+		deployed, err := c.deployed(ctx, env, name, svc)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, *deployed)
+	}
+	sort.Slice(services, func(i, j int) bool { return services[i].Service < services[j].Service })
+	return services, nil
+}
+
 // Apply creates or updates the service to match the manifest and waits
 // until the operation finishes (the new revision is ready or failed).
 func (c *Client) Apply(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*Deployed, error) {

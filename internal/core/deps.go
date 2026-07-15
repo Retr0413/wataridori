@@ -13,6 +13,9 @@ import (
 type CloudRun interface {
 	// Get returns the observed state, or (nil, nil) when not deployed.
 	Get(ctx context.Context, env *manifest.Environment, name string) (*cloudrun.Deployed, error)
+	// ListServices returns all Cloud Run services in an environment's
+	// project/region, including services not managed by Wataridori manifests.
+	ListServices(ctx context.Context, env *manifest.Environment) ([]cloudrun.Deployed, error)
 	Apply(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*cloudrun.Deployed, error)
 	ListRevisions(ctx context.Context, env *manifest.Environment, service string) ([]cloudrun.Revision, error)
 	SetTraffic(ctx context.Context, env *manifest.Environment, service, revision string) error
