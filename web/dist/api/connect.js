@@ -1,5 +1,6 @@
 export const procedures = {
     status: "/wataridori.v1.DeploymentService/Status",
+    inventory: "/wataridori.v1.DeploymentService/Inventory",
     history: "/wataridori.v1.DeploymentService/History",
     planPromote: "/wataridori.v1.DeploymentService/PlanPromote",
     apply: "/wataridori.v1.DeploymentService/Apply",

@@ -20,14 +20,17 @@ PipeCD の考え方は参考にするが、Wataridori は Cloud Run の digest �
 2. GitHub PR 昇格モード
 3. 実 GCP 受け入れテスト用サンプル環境
 4. Web UI の最小版
-5. 承認ゲート
-6. 通知
-7. Drift 詳細
-8. Cloud Console deep link
-9. 段階的 rollout
-10. 自動 rollback
-11. Event watcher
-12. Deployment Chain
+5. Cloud Run Inventory
+6. 既存 Cloud Run service の import
+7. Managed Image Update
+8. 承認ゲート
+9. 通知
+10. Drift 詳細
+11. Cloud Console deep link
+12. 段階的 rollout
+13. 自動 rollback
+14. Event watcher
+15. Deployment Chain
 
 ## 最優先
 
@@ -108,7 +111,52 @@ Plan Preview と承認ゲートの設計が固まってから追加する。
 
 ## v1.0 で欲しい機能
 
-### 5. 承認ゲート
+### 5. Cloud Run Inventory
+
+Cloud Run API から project / region 内の service を一覧し、Wataridori 管理対象かどうかを表示する。
+詳細な設計方針は [gitops-cloudrun-management.md](gitops-cloudrun-management.md) にまとめる。
+
+表示したい内容:
+
+- manifest に存在する managed service
+- Cloud Run には存在するが manifest に存在しない unmanaged service
+- desired image / actual image
+- serving revision
+- traffic
+- Ready 状態
+- Cloud Console deep link
+
+この機能は read-only なので GitOps を壊さない。Web UI の価値を上げる最初の拡張として扱う。
+
+### 6. 既存 Cloud Run service の import
+
+unmanaged service を Wataridori の manifest に変換し、Git commit / PR として取り込む。
+
+流れ:
+
+1. Cloud Run Inventory から unmanaged service を選ぶ
+2. Cloud Run service の設定を Phase 1 manifest schema に変換する
+3. 未対応フィールドがあれば warning として表示する
+4. 生成 manifest を review する
+5. Git commit / PR を作る
+
+既存の Cloud Run 利用者が Wataridori を導入しやすくなるため、OSS として重要度が高い。
+
+### 7. Managed Image Update
+
+管理対象 service に対して、Artifact Registry の digest を選んで manifest を更新する。
+
+注意点:
+
+- 標準導線では Cloud Run を直接更新しない
+- manifest 更新を Git commit / PR として残す
+- prod では承認ゲートと組み合わせる
+- apply / controller が Cloud Run へ反映する
+
+任意 image を直接 Cloud Run に反映する機能は、通常の image update ではなく
+`break-glass` の緊急操作として別扱いにする。
+
+### 8. 承認ゲート
 
 prod 昇格前に approve を必須にできる機能。PipeCD の `WAIT_APPROVAL` に近いが、
 Wataridori では prod の `promote` / `apply` に絞る。
@@ -120,7 +168,7 @@ Wataridori では prod の `promote` / `apply` に絞る。
 - 承認前に Plan Preview を確認できる
 - 承認済みの plan と実行時の plan がずれた場合は再承認を求める
 
-### 6. 通知
+### 9. 通知
 
 Slack / generic webhook へ操作イベントを通知する。
 
@@ -135,7 +183,7 @@ Slack / generic webhook へ操作イベントを通知する。
 
 通知はまず webhook payload を安定させ、その後 Slack 用の見やすい表示を追加する。
 
-### 7. Drift 詳細
+### 10. Drift 詳細
 
 現在の `status` は digest 比較が中心である。次の段階では、なぜ drift しているかをより詳しく出す。
 
@@ -153,7 +201,7 @@ Slack / generic webhook へ操作イベントを通知する。
 ただし、Cloud Run の全フィールド差分を自前で完全再現する必要はない。MVP では image / revision /
 traffic / Ready に絞る。
 
-### 8. Cloud Console deep link
+### 11. Cloud Console deep link
 
 Wataridori はログやメトリクス UI を再発明しない。代わりに Cloud Console / Cloud Logging への
 deep link を CLI / Web UI に出す。
@@ -167,7 +215,7 @@ deep link を CLI / Web UI に出す。
 
 ## 将来で良い機能
 
-### 9. 段階的 rollout
+### 12. 段階的 rollout
 
 Cloud Run の traffic split を使い、prod 反映を段階的に進める。
 
@@ -185,7 +233,7 @@ rollout:
 
 最初は手動ステップ実行でもよい。自動進行や analysis 連動は後回しにする。
 
-### 10. 自動 rollback
+### 13. 自動 rollback
 
 Cloud Monitoring や HTTP smoke test と連動し、異常を検知したら rollback する。
 
@@ -197,7 +245,7 @@ Cloud Monitoring や HTTP smoke test と連動し、異常を検知したら rol
 
 これは強力だが設計コストが高い。承認・通知・状態可視化・段階的 rollout が揃ってから扱う。
 
-### 11. Event watcher
+### 14. Event watcher
 
 Artifact Registry push や GitHub Actions 完了などを受けて、dev manifest の digest を自動更新する。
 
@@ -207,7 +255,7 @@ Artifact Registry push や GitHub Actions 完了などを受けて、dev manifes
 - ビルド済み image digest を manifest に反映するだけにする
 - prod への反映は引き続き promote / approval によって制御する
 
-### 12. Deployment Chain
+### 15. Deployment Chain
 
 `dev -> staging -> prod` のような多段昇格を扱う。
 

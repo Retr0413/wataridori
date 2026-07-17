@@ -305,6 +305,53 @@ func TestStatusNotDeployed(t *testing.T) {
 	}
 }
 
+// --- inventory ---
+
+func TestInventoryClassifiesManagedUnmanagedAndMissing(t *testing.T) {
+	e := newTestEngine(t, false)
+	e.cloudRun.deployed["prod/external-api"] = &cloudrun.Deployed{
+		Service: "external-api", Image: "reg.example/prod/external-api@" + digestNew,
+		Revision: "external-api-00001", Ready: true, TrafficPercent: 100,
+	}
+	e.cloudRun.deployed["prod/my-app"] = &cloudrun.Deployed{
+		Service: "my-app", Image: "reg.example/prod/my-app@" + digestOld,
+		Revision: "my-app-00001", Ready: true, TrafficPercent: 100,
+	}
+
+	res, err := e.Inventory(ctx, InventoryRequest{Env: "prod"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Items) != 2 {
+		t.Fatalf("items = %+v", res.Items)
+	}
+	byName := map[string]InventoryItem{}
+	for _, item := range res.Items {
+		byName[item.Service] = item
+	}
+	if item := byName["my-app"]; !item.Managed || item.State != InventoryInSync || item.DesiredDigest != digestOld {
+		t.Errorf("my-app = %+v", item)
+	}
+	if item := byName["external-api"]; item.Managed || item.State != InventoryUnmanaged || item.ActualDigest != digestNew {
+		t.Errorf("external-api = %+v", item)
+	}
+}
+
+func TestInventoryShowsManagedServiceNotDeployed(t *testing.T) {
+	e := newTestEngine(t, false)
+	res, err := e.Inventory(ctx, InventoryRequest{Env: "prod"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Items) != 1 {
+		t.Fatalf("items = %+v", res.Items)
+	}
+	item := res.Items[0]
+	if !item.Managed || item.State != InventoryNotDeployed || item.Service != "my-app" {
+		t.Errorf("item = %+v", item)
+	}
+}
+
 // --- history ---
 
 func TestListHistory(t *testing.T) {

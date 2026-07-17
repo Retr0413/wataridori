@@ -20,6 +20,8 @@ import (
 type fakeUseCases struct {
 	statusReq   core.StatusRequest
 	statusRes   *core.StatusResult
+	invReq      core.InventoryRequest
+	invRes      *core.InventoryResult
 	applyReq    core.ApplyRequest
 	applyRes    *core.ApplyResult
 	promoteReq  core.PromoteRequest
@@ -34,6 +36,11 @@ type fakeUseCases struct {
 func (f *fakeUseCases) Status(_ context.Context, req core.StatusRequest) (*core.StatusResult, error) {
 	f.statusReq = req
 	return f.statusRes, nil
+}
+
+func (f *fakeUseCases) Inventory(_ context.Context, req core.InventoryRequest) (*core.InventoryResult, error) {
+	f.invReq = req
+	return f.invRes, nil
 }
 
 func (f *fakeUseCases) Apply(_ context.Context, req core.ApplyRequest) (*core.ApplyResult, error) {
@@ -160,6 +167,39 @@ func TestStatusConnectJSON(t *testing.T) {
 	}
 	if !cleaned {
 		t.Error("cleanup not called")
+	}
+}
+
+func TestInventory(t *testing.T) {
+	f := &fakeUseCases{invRes: &core.InventoryResult{
+		Items: []core.InventoryItem{{
+			Env: "prod", Project: "p", Region: "asia-northeast1", Service: "api",
+			Managed: true, DesiredDigest: "sha256:abc", ActualDigest: "sha256:def",
+			State: core.InventoryDrift, TrafficPct: 100,
+		}},
+	}}
+	cleaned := false
+	res, err := srv(f, &cleaned).Inventory(context.Background(),
+		connect.NewRequest(&v1.InventoryRequest{Env: "prod"}))
+	if err != nil {
+		t.Fatalf("Inventory: %v", err)
+	}
+	if f.invReq.Env != "prod" {
+		t.Errorf("env not forwarded: %q", f.invReq.Env)
+	}
+	if !cleaned {
+		t.Error("cleanup not called")
+	}
+	items := res.Msg.GetItems()
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1", len(items))
+	}
+	got := items[0]
+	if got.GetState() != v1.InventoryState_INVENTORY_STATE_DRIFT {
+		t.Errorf("state = %v, want DRIFT", got.GetState())
+	}
+	if !got.GetManaged() || got.GetTrafficPercent() != 100 {
+		t.Errorf("item = %+v", got)
 	}
 }
 

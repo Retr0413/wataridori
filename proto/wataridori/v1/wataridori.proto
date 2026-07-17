@@ -16,6 +16,10 @@ service DeploymentService {
   // (Cloud Run). See docs/spec/phase1-cli.md §2.4.
   rpc Status(StatusRequest) returns (StatusResponse) {}
 
+  // Inventory lists Cloud Run services in configured environments and marks
+  // whether each service is managed by Wataridori manifests.
+  rpc Inventory(InventoryRequest) returns (InventoryResponse) {}
+
   // Apply deploys an environment's manifests to Cloud Run. §2.1.
   rpc Apply(ApplyRequest) returns (ApplyResponse) {}
 
@@ -41,6 +45,15 @@ enum SyncState {
   SYNC_STATE_IN_SYNC = 1;
   SYNC_STATE_DRIFT = 2;
   SYNC_STATE_NOT_DEPLOYED = 3;
+}
+
+// InventoryState classifies one Cloud Run service in the inventory view.
+enum InventoryState {
+  INVENTORY_STATE_UNSPECIFIED = 0;
+  INVENTORY_STATE_IN_SYNC = 1;
+  INVENTORY_STATE_DRIFT = 2;
+  INVENTORY_STATE_NOT_DEPLOYED = 3;
+  INVENTORY_STATE_UNMANAGED = 4;
 }
 
 // Action is the recorded operation kind for history entries.
@@ -80,6 +93,36 @@ message ServiceStatus {
   int32 traffic_percent = 11;
   string url = 12;
   string console_url = 13;
+}
+
+// --- Inventory ------------------------------------------------------------
+
+message InventoryRequest {
+  // Empty env means all configured environments.
+  string env = 1;
+}
+
+message InventoryResponse {
+  repeated InventoryItem items = 1;
+}
+
+message InventoryItem {
+  string env = 1;
+  string project = 2;
+  string region = 3;
+  string service = 4;
+  bool managed = 5;
+  string desired_image = 6;
+  string desired_digest = 7;
+  string actual_image = 8;
+  string actual_digest = 9;
+  string revision = 10;
+  int32 traffic_percent = 11;
+  bool ready = 12;
+  string ready_message = 13;
+  string url = 14;
+  string console_url = 15;
+  InventoryState state = 16;
 }
 
 // --- Apply ----------------------------------------------------------------

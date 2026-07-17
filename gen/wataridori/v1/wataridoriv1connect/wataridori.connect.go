@@ -39,6 +39,9 @@ const (
 	// DeploymentServiceStatusProcedure is the fully-qualified name of the DeploymentService's Status
 	// RPC.
 	DeploymentServiceStatusProcedure = "/wataridori.v1.DeploymentService/Status"
+	// DeploymentServiceInventoryProcedure is the fully-qualified name of the DeploymentService's
+	// Inventory RPC.
+	DeploymentServiceInventoryProcedure = "/wataridori.v1.DeploymentService/Inventory"
 	// DeploymentServiceApplyProcedure is the fully-qualified name of the DeploymentService's Apply RPC.
 	DeploymentServiceApplyProcedure = "/wataridori.v1.DeploymentService/Apply"
 	// DeploymentServicePlanPromoteProcedure is the fully-qualified name of the DeploymentService's
@@ -63,6 +66,9 @@ type DeploymentServiceClient interface {
 	// Status compares desired state (Git manifests) with observed state
 	// (Cloud Run). See docs/spec/phase1-cli.md §2.4.
 	Status(context.Context, *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error)
+	// Inventory lists Cloud Run services in configured environments and marks
+	// whether each service is managed by Wataridori manifests.
+	Inventory(context.Context, *connect.Request[v1.InventoryRequest]) (*connect.Response[v1.InventoryResponse], error)
 	// Apply deploys an environment's manifests to Cloud Run. §2.1.
 	Apply(context.Context, *connect.Request[v1.ApplyRequest]) (*connect.Response[v1.ApplyResponse], error)
 	// PlanPromote previews the digest diff without writing anything. §2.2.
@@ -92,6 +98,12 @@ func NewDeploymentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			httpClient,
 			baseURL+DeploymentServiceStatusProcedure,
 			connect.WithSchema(deploymentServiceMethods.ByName("Status")),
+			connect.WithClientOptions(opts...),
+		),
+		inventory: connect.NewClient[v1.InventoryRequest, v1.InventoryResponse](
+			httpClient,
+			baseURL+DeploymentServiceInventoryProcedure,
+			connect.WithSchema(deploymentServiceMethods.ByName("Inventory")),
 			connect.WithClientOptions(opts...),
 		),
 		apply: connect.NewClient[v1.ApplyRequest, v1.ApplyResponse](
@@ -136,6 +148,7 @@ func NewDeploymentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 // deploymentServiceClient implements DeploymentServiceClient.
 type deploymentServiceClient struct {
 	status          *connect.Client[v1.StatusRequest, v1.StatusResponse]
+	inventory       *connect.Client[v1.InventoryRequest, v1.InventoryResponse]
 	apply           *connect.Client[v1.ApplyRequest, v1.ApplyResponse]
 	planPromote     *connect.Client[v1.PlanPromoteRequest, v1.PlanPromoteResponse]
 	executePromote  *connect.Client[v1.ExecutePromoteRequest, v1.ExecutePromoteResponse]
@@ -147,6 +160,11 @@ type deploymentServiceClient struct {
 // Status calls wataridori.v1.DeploymentService.Status.
 func (c *deploymentServiceClient) Status(ctx context.Context, req *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error) {
 	return c.status.CallUnary(ctx, req)
+}
+
+// Inventory calls wataridori.v1.DeploymentService.Inventory.
+func (c *deploymentServiceClient) Inventory(ctx context.Context, req *connect.Request[v1.InventoryRequest]) (*connect.Response[v1.InventoryResponse], error) {
+	return c.inventory.CallUnary(ctx, req)
 }
 
 // Apply calls wataridori.v1.DeploymentService.Apply.
@@ -184,6 +202,9 @@ type DeploymentServiceHandler interface {
 	// Status compares desired state (Git manifests) with observed state
 	// (Cloud Run). See docs/spec/phase1-cli.md §2.4.
 	Status(context.Context, *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error)
+	// Inventory lists Cloud Run services in configured environments and marks
+	// whether each service is managed by Wataridori manifests.
+	Inventory(context.Context, *connect.Request[v1.InventoryRequest]) (*connect.Response[v1.InventoryResponse], error)
 	// Apply deploys an environment's manifests to Cloud Run. §2.1.
 	Apply(context.Context, *connect.Request[v1.ApplyRequest]) (*connect.Response[v1.ApplyResponse], error)
 	// PlanPromote previews the digest diff without writing anything. §2.2.
@@ -209,6 +230,12 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 		DeploymentServiceStatusProcedure,
 		svc.Status,
 		connect.WithSchema(deploymentServiceMethods.ByName("Status")),
+		connect.WithHandlerOptions(opts...),
+	)
+	deploymentServiceInventoryHandler := connect.NewUnaryHandler(
+		DeploymentServiceInventoryProcedure,
+		svc.Inventory,
+		connect.WithSchema(deploymentServiceMethods.ByName("Inventory")),
 		connect.WithHandlerOptions(opts...),
 	)
 	deploymentServiceApplyHandler := connect.NewUnaryHandler(
@@ -251,6 +278,8 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 		switch r.URL.Path {
 		case DeploymentServiceStatusProcedure:
 			deploymentServiceStatusHandler.ServeHTTP(w, r)
+		case DeploymentServiceInventoryProcedure:
+			deploymentServiceInventoryHandler.ServeHTTP(w, r)
 		case DeploymentServiceApplyProcedure:
 			deploymentServiceApplyHandler.ServeHTTP(w, r)
 		case DeploymentServicePlanPromoteProcedure:
@@ -274,6 +303,10 @@ type UnimplementedDeploymentServiceHandler struct{}
 
 func (UnimplementedDeploymentServiceHandler) Status(context.Context, *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wataridori.v1.DeploymentService.Status is not implemented"))
+}
+
+func (UnimplementedDeploymentServiceHandler) Inventory(context.Context, *connect.Request[v1.InventoryRequest]) (*connect.Response[v1.InventoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wataridori.v1.DeploymentService.Inventory is not implemented"))
 }
 
 func (UnimplementedDeploymentServiceHandler) Apply(context.Context, *connect.Request[v1.ApplyRequest]) (*connect.Response[v1.ApplyResponse], error) {

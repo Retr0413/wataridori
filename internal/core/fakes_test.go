@@ -41,6 +41,18 @@ func (f *fakeCloudRun) Get(_ context.Context, env *manifest.Environment, name st
 	return f.deployed[key(env, name)], nil
 }
 
+func (f *fakeCloudRun) ListServices(_ context.Context, env *manifest.Environment) ([]cloudrun.Deployed, error) {
+	var out []cloudrun.Deployed
+	prefix := env.Name + "/"
+	for k, deployed := range f.deployed {
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		out = append(out, *deployed)
+	}
+	return out, nil
+}
+
 func (f *fakeCloudRun) Apply(_ context.Context, env *manifest.Environment, svc *manifest.Service, _ time.Duration) (*cloudrun.Deployed, error) {
 	k := key(env, svc.Name)
 	f.applied = append(f.applied, k)

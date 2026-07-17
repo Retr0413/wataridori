@@ -23,6 +23,37 @@ export interface StatusResponse {
   drift?: boolean;
 }
 
+export type InventoryState =
+  | "INVENTORY_STATE_IN_SYNC"
+  | "INVENTORY_STATE_DRIFT"
+  | "INVENTORY_STATE_NOT_DEPLOYED"
+  | "INVENTORY_STATE_UNMANAGED"
+  | number
+  | string;
+
+export interface InventoryItem {
+  env?: string;
+  project?: string;
+  region?: string;
+  service?: string;
+  managed?: boolean;
+  desiredImage?: string;
+  desiredDigest?: string;
+  actualImage?: string;
+  actualDigest?: string;
+  revision?: string;
+  trafficPercent?: number;
+  ready?: boolean;
+  readyMessage?: string;
+  url?: string;
+  consoleUrl?: string;
+  state?: InventoryState;
+}
+
+export interface InventoryResponse {
+  items?: InventoryItem[];
+}
+
 export interface HistoryEntry {
   id?: number;
   time?: string;

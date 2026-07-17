@@ -17,6 +17,10 @@ func (a cloudRunAdapter) Get(ctx context.Context, env *manifest.Environment, nam
 	return a.c.GetService(ctx, env, name)
 }
 
+func (a cloudRunAdapter) ListServices(ctx context.Context, env *manifest.Environment) ([]cloudrun.Deployed, error) {
+	return a.c.ListServices(ctx, env)
+}
+
 func (a cloudRunAdapter) Apply(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*cloudrun.Deployed, error) {
 	return a.c.Apply(ctx, env, svc, timeout)
 }

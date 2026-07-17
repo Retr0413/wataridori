@@ -64,6 +64,48 @@ func syncStateToProto(s core.SyncState) v1.SyncState {
 	}
 }
 
+// --- Inventory ---
+
+func inventoryToProto(res *core.InventoryResult) *v1.InventoryResponse {
+	out := &v1.InventoryResponse{}
+	for _, item := range res.Items {
+		out.Items = append(out.Items, &v1.InventoryItem{
+			Env:            item.Env,
+			Project:        item.Project,
+			Region:         item.Region,
+			Service:        item.Service,
+			Managed:        item.Managed,
+			DesiredImage:   item.DesiredImage,
+			DesiredDigest:  item.DesiredDigest,
+			ActualImage:    item.ActualImage,
+			ActualDigest:   item.ActualDigest,
+			Revision:       item.Revision,
+			TrafficPercent: item.TrafficPct,
+			Ready:          item.Ready,
+			ReadyMessage:   item.ReadyMessage,
+			Url:            item.URL,
+			ConsoleUrl:     item.ConsoleURL,
+			State:          inventoryStateToProto(item.State),
+		})
+	}
+	return out
+}
+
+func inventoryStateToProto(s core.InventoryState) v1.InventoryState {
+	switch s {
+	case core.InventoryInSync:
+		return v1.InventoryState_INVENTORY_STATE_IN_SYNC
+	case core.InventoryDrift:
+		return v1.InventoryState_INVENTORY_STATE_DRIFT
+	case core.InventoryNotDeployed:
+		return v1.InventoryState_INVENTORY_STATE_NOT_DEPLOYED
+	case core.InventoryUnmanaged:
+		return v1.InventoryState_INVENTORY_STATE_UNMANAGED
+	default:
+		return v1.InventoryState_INVENTORY_STATE_UNSPECIFIED
+	}
+}
+
 // --- Apply ---
 
 func applyFromProto(msg *v1.ApplyRequest) core.ApplyRequest {

@@ -79,6 +79,62 @@ func (SyncState) EnumDescriptor() ([]byte, []int) {
 	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{0}
 }
 
+// InventoryState classifies one Cloud Run service in the inventory view.
+type InventoryState int32
+
+const (
+	InventoryState_INVENTORY_STATE_UNSPECIFIED  InventoryState = 0
+	InventoryState_INVENTORY_STATE_IN_SYNC      InventoryState = 1
+	InventoryState_INVENTORY_STATE_DRIFT        InventoryState = 2
+	InventoryState_INVENTORY_STATE_NOT_DEPLOYED InventoryState = 3
+	InventoryState_INVENTORY_STATE_UNMANAGED    InventoryState = 4
+)
+
+// Enum value maps for InventoryState.
+var (
+	InventoryState_name = map[int32]string{
+		0: "INVENTORY_STATE_UNSPECIFIED",
+		1: "INVENTORY_STATE_IN_SYNC",
+		2: "INVENTORY_STATE_DRIFT",
+		3: "INVENTORY_STATE_NOT_DEPLOYED",
+		4: "INVENTORY_STATE_UNMANAGED",
+	}
+	InventoryState_value = map[string]int32{
+		"INVENTORY_STATE_UNSPECIFIED":  0,
+		"INVENTORY_STATE_IN_SYNC":      1,
+		"INVENTORY_STATE_DRIFT":        2,
+		"INVENTORY_STATE_NOT_DEPLOYED": 3,
+		"INVENTORY_STATE_UNMANAGED":    4,
+	}
+)
+
+func (x InventoryState) Enum() *InventoryState {
+	p := new(InventoryState)
+	*p = x
+	return p
+}
+
+func (x InventoryState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InventoryState) Descriptor() protoreflect.EnumDescriptor {
+	return file_wataridori_v1_wataridori_proto_enumTypes[1].Descriptor()
+}
+
+func (InventoryState) Type() protoreflect.EnumType {
+	return &file_wataridori_v1_wataridori_proto_enumTypes[1]
+}
+
+func (x InventoryState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use InventoryState.Descriptor instead.
+func (InventoryState) EnumDescriptor() ([]byte, []int) {
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{1}
+}
+
 // Action is the recorded operation kind for history entries.
 type Action int32
 
@@ -116,11 +172,11 @@ func (x Action) String() string {
 }
 
 func (Action) Descriptor() protoreflect.EnumDescriptor {
-	return file_wataridori_v1_wataridori_proto_enumTypes[1].Descriptor()
+	return file_wataridori_v1_wataridori_proto_enumTypes[2].Descriptor()
 }
 
 func (Action) Type() protoreflect.EnumType {
-	return &file_wataridori_v1_wataridori_proto_enumTypes[1]
+	return &file_wataridori_v1_wataridori_proto_enumTypes[2]
 }
 
 func (x Action) Number() protoreflect.EnumNumber {
@@ -129,7 +185,7 @@ func (x Action) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Action.Descriptor instead.
 func (Action) EnumDescriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{1}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{2}
 }
 
 type StatusRequest struct {
@@ -372,6 +428,259 @@ func (x *ServiceStatus) GetConsoleUrl() string {
 	return ""
 }
 
+type InventoryRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Empty env means all configured environments.
+	Env           string `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InventoryRequest) Reset() {
+	*x = InventoryRequest{}
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventoryRequest) ProtoMessage() {}
+
+func (x *InventoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventoryRequest.ProtoReflect.Descriptor instead.
+func (*InventoryRequest) Descriptor() ([]byte, []int) {
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *InventoryRequest) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+type InventoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*InventoryItem       `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InventoryResponse) Reset() {
+	*x = InventoryResponse{}
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventoryResponse) ProtoMessage() {}
+
+func (x *InventoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventoryResponse.ProtoReflect.Descriptor instead.
+func (*InventoryResponse) Descriptor() ([]byte, []int) {
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *InventoryResponse) GetItems() []*InventoryItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type InventoryItem struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Env            string                 `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`
+	Project        string                 `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
+	Region         string                 `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
+	Service        string                 `protobuf:"bytes,4,opt,name=service,proto3" json:"service,omitempty"`
+	Managed        bool                   `protobuf:"varint,5,opt,name=managed,proto3" json:"managed,omitempty"`
+	DesiredImage   string                 `protobuf:"bytes,6,opt,name=desired_image,json=desiredImage,proto3" json:"desired_image,omitempty"`
+	DesiredDigest  string                 `protobuf:"bytes,7,opt,name=desired_digest,json=desiredDigest,proto3" json:"desired_digest,omitempty"`
+	ActualImage    string                 `protobuf:"bytes,8,opt,name=actual_image,json=actualImage,proto3" json:"actual_image,omitempty"`
+	ActualDigest   string                 `protobuf:"bytes,9,opt,name=actual_digest,json=actualDigest,proto3" json:"actual_digest,omitempty"`
+	Revision       string                 `protobuf:"bytes,10,opt,name=revision,proto3" json:"revision,omitempty"`
+	TrafficPercent int32                  `protobuf:"varint,11,opt,name=traffic_percent,json=trafficPercent,proto3" json:"traffic_percent,omitempty"`
+	Ready          bool                   `protobuf:"varint,12,opt,name=ready,proto3" json:"ready,omitempty"`
+	ReadyMessage   string                 `protobuf:"bytes,13,opt,name=ready_message,json=readyMessage,proto3" json:"ready_message,omitempty"`
+	Url            string                 `protobuf:"bytes,14,opt,name=url,proto3" json:"url,omitempty"`
+	ConsoleUrl     string                 `protobuf:"bytes,15,opt,name=console_url,json=consoleUrl,proto3" json:"console_url,omitempty"`
+	State          InventoryState         `protobuf:"varint,16,opt,name=state,proto3,enum=wataridori.v1.InventoryState" json:"state,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *InventoryItem) Reset() {
+	*x = InventoryItem{}
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventoryItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventoryItem) ProtoMessage() {}
+
+func (x *InventoryItem) ProtoReflect() protoreflect.Message {
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventoryItem.ProtoReflect.Descriptor instead.
+func (*InventoryItem) Descriptor() ([]byte, []int) {
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *InventoryItem) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetManaged() bool {
+	if x != nil {
+		return x.Managed
+	}
+	return false
+}
+
+func (x *InventoryItem) GetDesiredImage() string {
+	if x != nil {
+		return x.DesiredImage
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetDesiredDigest() string {
+	if x != nil {
+		return x.DesiredDigest
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetActualImage() string {
+	if x != nil {
+		return x.ActualImage
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetActualDigest() string {
+	if x != nil {
+		return x.ActualDigest
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetRevision() string {
+	if x != nil {
+		return x.Revision
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetTrafficPercent() int32 {
+	if x != nil {
+		return x.TrafficPercent
+	}
+	return 0
+}
+
+func (x *InventoryItem) GetReady() bool {
+	if x != nil {
+		return x.Ready
+	}
+	return false
+}
+
+func (x *InventoryItem) GetReadyMessage() string {
+	if x != nil {
+		return x.ReadyMessage
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetConsoleUrl() string {
+	if x != nil {
+		return x.ConsoleUrl
+	}
+	return ""
+}
+
+func (x *InventoryItem) GetState() InventoryState {
+	if x != nil {
+		return x.State
+	}
+	return InventoryState_INVENTORY_STATE_UNSPECIFIED
+}
+
 type ApplyRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Env     string                 `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`
@@ -386,7 +695,7 @@ type ApplyRequest struct {
 
 func (x *ApplyRequest) Reset() {
 	*x = ApplyRequest{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[3]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -398,7 +707,7 @@ func (x *ApplyRequest) String() string {
 func (*ApplyRequest) ProtoMessage() {}
 
 func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[3]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -411,7 +720,7 @@ func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyRequest.ProtoReflect.Descriptor instead.
 func (*ApplyRequest) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{3}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ApplyRequest) GetEnv() string {
@@ -453,7 +762,7 @@ type ApplyResponse struct {
 
 func (x *ApplyResponse) Reset() {
 	*x = ApplyResponse{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[4]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -465,7 +774,7 @@ func (x *ApplyResponse) String() string {
 func (*ApplyResponse) ProtoMessage() {}
 
 func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[4]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -478,7 +787,7 @@ func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResponse.ProtoReflect.Descriptor instead.
 func (*ApplyResponse) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{4}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ApplyResponse) GetEnv() string {
@@ -519,7 +828,7 @@ type ApplyServiceResult struct {
 
 func (x *ApplyServiceResult) Reset() {
 	*x = ApplyServiceResult{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[5]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -531,7 +840,7 @@ func (x *ApplyServiceResult) String() string {
 func (*ApplyServiceResult) ProtoMessage() {}
 
 func (x *ApplyServiceResult) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[5]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -544,7 +853,7 @@ func (x *ApplyServiceResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyServiceResult.ProtoReflect.Descriptor instead.
 func (*ApplyServiceResult) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{5}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ApplyServiceResult) GetService() string {
@@ -600,7 +909,7 @@ type PlanPromoteRequest struct {
 
 func (x *PlanPromoteRequest) Reset() {
 	*x = PlanPromoteRequest{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[6]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -612,7 +921,7 @@ func (x *PlanPromoteRequest) String() string {
 func (*PlanPromoteRequest) ProtoMessage() {}
 
 func (x *PlanPromoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[6]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -625,7 +934,7 @@ func (x *PlanPromoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanPromoteRequest.ProtoReflect.Descriptor instead.
 func (*PlanPromoteRequest) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{6}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *PlanPromoteRequest) GetFrom() string {
@@ -661,7 +970,7 @@ type PlanPromoteResponse struct {
 
 func (x *PlanPromoteResponse) Reset() {
 	*x = PlanPromoteResponse{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[7]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -673,7 +982,7 @@ func (x *PlanPromoteResponse) String() string {
 func (*PlanPromoteResponse) ProtoMessage() {}
 
 func (x *PlanPromoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[7]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -686,7 +995,7 @@ func (x *PlanPromoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanPromoteResponse.ProtoReflect.Descriptor instead.
 func (*PlanPromoteResponse) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{7}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *PlanPromoteResponse) GetFrom() string {
@@ -721,7 +1030,7 @@ type ExecutePromoteRequest struct {
 
 func (x *ExecutePromoteRequest) Reset() {
 	*x = ExecutePromoteRequest{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[8]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -733,7 +1042,7 @@ func (x *ExecutePromoteRequest) String() string {
 func (*ExecutePromoteRequest) ProtoMessage() {}
 
 func (x *ExecutePromoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[8]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -746,7 +1055,7 @@ func (x *ExecutePromoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecutePromoteRequest.ProtoReflect.Descriptor instead.
 func (*ExecutePromoteRequest) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{8}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ExecutePromoteRequest) GetFrom() string {
@@ -782,7 +1091,7 @@ type ExecutePromoteResponse struct {
 
 func (x *ExecutePromoteResponse) Reset() {
 	*x = ExecutePromoteResponse{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[9]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -794,7 +1103,7 @@ func (x *ExecutePromoteResponse) String() string {
 func (*ExecutePromoteResponse) ProtoMessage() {}
 
 func (x *ExecutePromoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[9]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -807,7 +1116,7 @@ func (x *ExecutePromoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecutePromoteResponse.ProtoReflect.Descriptor instead.
 func (*ExecutePromoteResponse) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{9}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ExecutePromoteResponse) GetFrom() string {
@@ -854,7 +1163,7 @@ type PromoteItem struct {
 
 func (x *PromoteItem) Reset() {
 	*x = PromoteItem{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[10]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -866,7 +1175,7 @@ func (x *PromoteItem) String() string {
 func (*PromoteItem) ProtoMessage() {}
 
 func (x *PromoteItem) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[10]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +1188,7 @@ func (x *PromoteItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoteItem.ProtoReflect.Descriptor instead.
 func (*PromoteItem) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{10}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PromoteItem) GetService() string {
@@ -929,7 +1238,7 @@ type PlanRollbackRequest struct {
 
 func (x *PlanRollbackRequest) Reset() {
 	*x = PlanRollbackRequest{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[11]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -941,7 +1250,7 @@ func (x *PlanRollbackRequest) String() string {
 func (*PlanRollbackRequest) ProtoMessage() {}
 
 func (x *PlanRollbackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[11]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -954,7 +1263,7 @@ func (x *PlanRollbackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanRollbackRequest.ProtoReflect.Descriptor instead.
 func (*PlanRollbackRequest) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{11}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *PlanRollbackRequest) GetEnv() string {
@@ -988,7 +1297,7 @@ type PlanRollbackResponse struct {
 
 func (x *PlanRollbackResponse) Reset() {
 	*x = PlanRollbackResponse{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[12]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1000,7 +1309,7 @@ func (x *PlanRollbackResponse) String() string {
 func (*PlanRollbackResponse) ProtoMessage() {}
 
 func (x *PlanRollbackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[12]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1013,7 +1322,7 @@ func (x *PlanRollbackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanRollbackResponse.ProtoReflect.Descriptor instead.
 func (*PlanRollbackResponse) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{12}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PlanRollbackResponse) GetEnv() string {
@@ -1041,7 +1350,7 @@ type ExecuteRollbackRequest struct {
 
 func (x *ExecuteRollbackRequest) Reset() {
 	*x = ExecuteRollbackRequest{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[13]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1053,7 +1362,7 @@ func (x *ExecuteRollbackRequest) String() string {
 func (*ExecuteRollbackRequest) ProtoMessage() {}
 
 func (x *ExecuteRollbackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[13]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1066,7 +1375,7 @@ func (x *ExecuteRollbackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteRollbackRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteRollbackRequest) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{13}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ExecuteRollbackRequest) GetEnv() string {
@@ -1100,7 +1409,7 @@ type ExecuteRollbackResponse struct {
 
 func (x *ExecuteRollbackResponse) Reset() {
 	*x = ExecuteRollbackResponse{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[14]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1112,7 +1421,7 @@ func (x *ExecuteRollbackResponse) String() string {
 func (*ExecuteRollbackResponse) ProtoMessage() {}
 
 func (x *ExecuteRollbackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[14]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1125,7 +1434,7 @@ func (x *ExecuteRollbackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteRollbackResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteRollbackResponse) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{14}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ExecuteRollbackResponse) GetEnv() string {
@@ -1155,7 +1464,7 @@ type RollbackItem struct {
 
 func (x *RollbackItem) Reset() {
 	*x = RollbackItem{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[15]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1167,7 +1476,7 @@ func (x *RollbackItem) String() string {
 func (*RollbackItem) ProtoMessage() {}
 
 func (x *RollbackItem) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[15]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1180,7 +1489,7 @@ func (x *RollbackItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RollbackItem.ProtoReflect.Descriptor instead.
 func (*RollbackItem) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{15}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *RollbackItem) GetService() string {
@@ -1228,7 +1537,7 @@ type HistoryRequest struct {
 
 func (x *HistoryRequest) Reset() {
 	*x = HistoryRequest{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[16]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1240,7 +1549,7 @@ func (x *HistoryRequest) String() string {
 func (*HistoryRequest) ProtoMessage() {}
 
 func (x *HistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[16]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1253,7 +1562,7 @@ func (x *HistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryRequest.ProtoReflect.Descriptor instead.
 func (*HistoryRequest) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{16}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *HistoryRequest) GetEnv() string {
@@ -1279,7 +1588,7 @@ type HistoryResponse struct {
 
 func (x *HistoryResponse) Reset() {
 	*x = HistoryResponse{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[17]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1291,7 +1600,7 @@ func (x *HistoryResponse) String() string {
 func (*HistoryResponse) ProtoMessage() {}
 
 func (x *HistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[17]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1613,7 @@ func (x *HistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryResponse.ProtoReflect.Descriptor instead.
 func (*HistoryResponse) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{17}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *HistoryResponse) GetEntries() []*HistoryEntry {
@@ -1331,7 +1640,7 @@ type HistoryEntry struct {
 
 func (x *HistoryEntry) Reset() {
 	*x = HistoryEntry{}
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[18]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1343,7 +1652,7 @@ func (x *HistoryEntry) String() string {
 func (*HistoryEntry) ProtoMessage() {}
 
 func (x *HistoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_wataridori_v1_wataridori_proto_msgTypes[18]
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1356,7 +1665,7 @@ func (x *HistoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryEntry.ProtoReflect.Descriptor instead.
 func (*HistoryEntry) Descriptor() ([]byte, []int) {
-	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{18}
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *HistoryEntry) GetId() int64 {
@@ -1440,7 +1749,30 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x0ftraffic_percent\x18\v \x01(\x05R\x0etrafficPercent\x12\x10\n" +
 	"\x03url\x18\f \x01(\tR\x03url\x12\x1f\n" +
 	"\vconsole_url\x18\r \x01(\tR\n" +
-	"consoleUrl\"|\n" +
+	"consoleUrl\"$\n" +
+	"\x10InventoryRequest\x12\x10\n" +
+	"\x03env\x18\x01 \x01(\tR\x03env\"G\n" +
+	"\x11InventoryResponse\x122\n" +
+	"\x05items\x18\x01 \x03(\v2\x1c.wataridori.v1.InventoryItemR\x05items\"\x83\x04\n" +
+	"\rInventoryItem\x12\x10\n" +
+	"\x03env\x18\x01 \x01(\tR\x03env\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\x12\x16\n" +
+	"\x06region\x18\x03 \x01(\tR\x06region\x12\x18\n" +
+	"\aservice\x18\x04 \x01(\tR\aservice\x12\x18\n" +
+	"\amanaged\x18\x05 \x01(\bR\amanaged\x12#\n" +
+	"\rdesired_image\x18\x06 \x01(\tR\fdesiredImage\x12%\n" +
+	"\x0edesired_digest\x18\a \x01(\tR\rdesiredDigest\x12!\n" +
+	"\factual_image\x18\b \x01(\tR\vactualImage\x12#\n" +
+	"\ractual_digest\x18\t \x01(\tR\factualDigest\x12\x1a\n" +
+	"\brevision\x18\n" +
+	" \x01(\tR\brevision\x12'\n" +
+	"\x0ftraffic_percent\x18\v \x01(\x05R\x0etrafficPercent\x12\x14\n" +
+	"\x05ready\x18\f \x01(\bR\x05ready\x12#\n" +
+	"\rready_message\x18\r \x01(\tR\freadyMessage\x12\x10\n" +
+	"\x03url\x18\x0e \x01(\tR\x03url\x12\x1f\n" +
+	"\vconsole_url\x18\x0f \x01(\tR\n" +
+	"consoleUrl\x123\n" +
+	"\x05state\x18\x10 \x01(\x0e2\x1d.wataridori.v1.InventoryStateR\x05state\"|\n" +
 	"\fApplyRequest\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\x12\x18\n" +
 	"\aservice\x18\x02 \x01(\tR\aservice\x12\x17\n" +
@@ -1523,14 +1855,21 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x16SYNC_STATE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12SYNC_STATE_IN_SYNC\x10\x01\x12\x14\n" +
 	"\x10SYNC_STATE_DRIFT\x10\x02\x12\x1b\n" +
-	"\x17SYNC_STATE_NOT_DEPLOYED\x10\x03*[\n" +
+	"\x17SYNC_STATE_NOT_DEPLOYED\x10\x03*\xaa\x01\n" +
+	"\x0eInventoryState\x12\x1f\n" +
+	"\x1bINVENTORY_STATE_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17INVENTORY_STATE_IN_SYNC\x10\x01\x12\x19\n" +
+	"\x15INVENTORY_STATE_DRIFT\x10\x02\x12 \n" +
+	"\x1cINVENTORY_STATE_NOT_DEPLOYED\x10\x03\x12\x1d\n" +
+	"\x19INVENTORY_STATE_UNMANAGED\x10\x04*[\n" +
 	"\x06Action\x12\x16\n" +
 	"\x12ACTION_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fACTION_APPLY\x10\x01\x12\x12\n" +
 	"\x0eACTION_PROMOTE\x10\x02\x12\x13\n" +
-	"\x0fACTION_ROLLBACK\x10\x032\xe6\x04\n" +
+	"\x0fACTION_ROLLBACK\x10\x032\xb8\x05\n" +
 	"\x11DeploymentService\x12G\n" +
-	"\x06Status\x12\x1c.wataridori.v1.StatusRequest\x1a\x1d.wataridori.v1.StatusResponse\"\x00\x12D\n" +
+	"\x06Status\x12\x1c.wataridori.v1.StatusRequest\x1a\x1d.wataridori.v1.StatusResponse\"\x00\x12P\n" +
+	"\tInventory\x12\x1f.wataridori.v1.InventoryRequest\x1a .wataridori.v1.InventoryResponse\"\x00\x12D\n" +
 	"\x05Apply\x12\x1b.wataridori.v1.ApplyRequest\x1a\x1c.wataridori.v1.ApplyResponse\"\x00\x12V\n" +
 	"\vPlanPromote\x12!.wataridori.v1.PlanPromoteRequest\x1a\".wataridori.v1.PlanPromoteResponse\"\x00\x12_\n" +
 	"\x0eExecutePromote\x12$.wataridori.v1.ExecutePromoteRequest\x1a%.wataridori.v1.ExecutePromoteResponse\"\x00\x12Y\n" +
@@ -1551,64 +1890,72 @@ func file_wataridori_v1_wataridori_proto_rawDescGZIP() []byte {
 	return file_wataridori_v1_wataridori_proto_rawDescData
 }
 
-var file_wataridori_v1_wataridori_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_wataridori_v1_wataridori_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_wataridori_v1_wataridori_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_wataridori_v1_wataridori_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_wataridori_v1_wataridori_proto_goTypes = []any{
 	(SyncState)(0),                  // 0: wataridori.v1.SyncState
-	(Action)(0),                     // 1: wataridori.v1.Action
-	(*StatusRequest)(nil),           // 2: wataridori.v1.StatusRequest
-	(*StatusResponse)(nil),          // 3: wataridori.v1.StatusResponse
-	(*ServiceStatus)(nil),           // 4: wataridori.v1.ServiceStatus
-	(*ApplyRequest)(nil),            // 5: wataridori.v1.ApplyRequest
-	(*ApplyResponse)(nil),           // 6: wataridori.v1.ApplyResponse
-	(*ApplyServiceResult)(nil),      // 7: wataridori.v1.ApplyServiceResult
-	(*PlanPromoteRequest)(nil),      // 8: wataridori.v1.PlanPromoteRequest
-	(*PlanPromoteResponse)(nil),     // 9: wataridori.v1.PlanPromoteResponse
-	(*ExecutePromoteRequest)(nil),   // 10: wataridori.v1.ExecutePromoteRequest
-	(*ExecutePromoteResponse)(nil),  // 11: wataridori.v1.ExecutePromoteResponse
-	(*PromoteItem)(nil),             // 12: wataridori.v1.PromoteItem
-	(*PlanRollbackRequest)(nil),     // 13: wataridori.v1.PlanRollbackRequest
-	(*PlanRollbackResponse)(nil),    // 14: wataridori.v1.PlanRollbackResponse
-	(*ExecuteRollbackRequest)(nil),  // 15: wataridori.v1.ExecuteRollbackRequest
-	(*ExecuteRollbackResponse)(nil), // 16: wataridori.v1.ExecuteRollbackResponse
-	(*RollbackItem)(nil),            // 17: wataridori.v1.RollbackItem
-	(*HistoryRequest)(nil),          // 18: wataridori.v1.HistoryRequest
-	(*HistoryResponse)(nil),         // 19: wataridori.v1.HistoryResponse
-	(*HistoryEntry)(nil),            // 20: wataridori.v1.HistoryEntry
-	nil,                             // 21: wataridori.v1.HistoryEntry.DetailEntry
-	(*timestamppb.Timestamp)(nil),   // 22: google.protobuf.Timestamp
+	(InventoryState)(0),             // 1: wataridori.v1.InventoryState
+	(Action)(0),                     // 2: wataridori.v1.Action
+	(*StatusRequest)(nil),           // 3: wataridori.v1.StatusRequest
+	(*StatusResponse)(nil),          // 4: wataridori.v1.StatusResponse
+	(*ServiceStatus)(nil),           // 5: wataridori.v1.ServiceStatus
+	(*InventoryRequest)(nil),        // 6: wataridori.v1.InventoryRequest
+	(*InventoryResponse)(nil),       // 7: wataridori.v1.InventoryResponse
+	(*InventoryItem)(nil),           // 8: wataridori.v1.InventoryItem
+	(*ApplyRequest)(nil),            // 9: wataridori.v1.ApplyRequest
+	(*ApplyResponse)(nil),           // 10: wataridori.v1.ApplyResponse
+	(*ApplyServiceResult)(nil),      // 11: wataridori.v1.ApplyServiceResult
+	(*PlanPromoteRequest)(nil),      // 12: wataridori.v1.PlanPromoteRequest
+	(*PlanPromoteResponse)(nil),     // 13: wataridori.v1.PlanPromoteResponse
+	(*ExecutePromoteRequest)(nil),   // 14: wataridori.v1.ExecutePromoteRequest
+	(*ExecutePromoteResponse)(nil),  // 15: wataridori.v1.ExecutePromoteResponse
+	(*PromoteItem)(nil),             // 16: wataridori.v1.PromoteItem
+	(*PlanRollbackRequest)(nil),     // 17: wataridori.v1.PlanRollbackRequest
+	(*PlanRollbackResponse)(nil),    // 18: wataridori.v1.PlanRollbackResponse
+	(*ExecuteRollbackRequest)(nil),  // 19: wataridori.v1.ExecuteRollbackRequest
+	(*ExecuteRollbackResponse)(nil), // 20: wataridori.v1.ExecuteRollbackResponse
+	(*RollbackItem)(nil),            // 21: wataridori.v1.RollbackItem
+	(*HistoryRequest)(nil),          // 22: wataridori.v1.HistoryRequest
+	(*HistoryResponse)(nil),         // 23: wataridori.v1.HistoryResponse
+	(*HistoryEntry)(nil),            // 24: wataridori.v1.HistoryEntry
+	nil,                             // 25: wataridori.v1.HistoryEntry.DetailEntry
+	(*timestamppb.Timestamp)(nil),   // 26: google.protobuf.Timestamp
 }
 var file_wataridori_v1_wataridori_proto_depIdxs = []int32{
-	4,  // 0: wataridori.v1.StatusResponse.services:type_name -> wataridori.v1.ServiceStatus
+	5,  // 0: wataridori.v1.StatusResponse.services:type_name -> wataridori.v1.ServiceStatus
 	0,  // 1: wataridori.v1.ServiceStatus.state:type_name -> wataridori.v1.SyncState
-	7,  // 2: wataridori.v1.ApplyResponse.services:type_name -> wataridori.v1.ApplyServiceResult
-	12, // 3: wataridori.v1.PlanPromoteResponse.items:type_name -> wataridori.v1.PromoteItem
-	12, // 4: wataridori.v1.ExecutePromoteResponse.items:type_name -> wataridori.v1.PromoteItem
-	17, // 5: wataridori.v1.PlanRollbackResponse.items:type_name -> wataridori.v1.RollbackItem
-	17, // 6: wataridori.v1.ExecuteRollbackResponse.items:type_name -> wataridori.v1.RollbackItem
-	20, // 7: wataridori.v1.HistoryResponse.entries:type_name -> wataridori.v1.HistoryEntry
-	22, // 8: wataridori.v1.HistoryEntry.time:type_name -> google.protobuf.Timestamp
-	1,  // 9: wataridori.v1.HistoryEntry.action:type_name -> wataridori.v1.Action
-	21, // 10: wataridori.v1.HistoryEntry.detail:type_name -> wataridori.v1.HistoryEntry.DetailEntry
-	2,  // 11: wataridori.v1.DeploymentService.Status:input_type -> wataridori.v1.StatusRequest
-	5,  // 12: wataridori.v1.DeploymentService.Apply:input_type -> wataridori.v1.ApplyRequest
-	8,  // 13: wataridori.v1.DeploymentService.PlanPromote:input_type -> wataridori.v1.PlanPromoteRequest
-	10, // 14: wataridori.v1.DeploymentService.ExecutePromote:input_type -> wataridori.v1.ExecutePromoteRequest
-	13, // 15: wataridori.v1.DeploymentService.PlanRollback:input_type -> wataridori.v1.PlanRollbackRequest
-	15, // 16: wataridori.v1.DeploymentService.ExecuteRollback:input_type -> wataridori.v1.ExecuteRollbackRequest
-	18, // 17: wataridori.v1.DeploymentService.History:input_type -> wataridori.v1.HistoryRequest
-	3,  // 18: wataridori.v1.DeploymentService.Status:output_type -> wataridori.v1.StatusResponse
-	6,  // 19: wataridori.v1.DeploymentService.Apply:output_type -> wataridori.v1.ApplyResponse
-	9,  // 20: wataridori.v1.DeploymentService.PlanPromote:output_type -> wataridori.v1.PlanPromoteResponse
-	11, // 21: wataridori.v1.DeploymentService.ExecutePromote:output_type -> wataridori.v1.ExecutePromoteResponse
-	14, // 22: wataridori.v1.DeploymentService.PlanRollback:output_type -> wataridori.v1.PlanRollbackResponse
-	16, // 23: wataridori.v1.DeploymentService.ExecuteRollback:output_type -> wataridori.v1.ExecuteRollbackResponse
-	19, // 24: wataridori.v1.DeploymentService.History:output_type -> wataridori.v1.HistoryResponse
-	18, // [18:25] is the sub-list for method output_type
-	11, // [11:18] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	8,  // 2: wataridori.v1.InventoryResponse.items:type_name -> wataridori.v1.InventoryItem
+	1,  // 3: wataridori.v1.InventoryItem.state:type_name -> wataridori.v1.InventoryState
+	11, // 4: wataridori.v1.ApplyResponse.services:type_name -> wataridori.v1.ApplyServiceResult
+	16, // 5: wataridori.v1.PlanPromoteResponse.items:type_name -> wataridori.v1.PromoteItem
+	16, // 6: wataridori.v1.ExecutePromoteResponse.items:type_name -> wataridori.v1.PromoteItem
+	21, // 7: wataridori.v1.PlanRollbackResponse.items:type_name -> wataridori.v1.RollbackItem
+	21, // 8: wataridori.v1.ExecuteRollbackResponse.items:type_name -> wataridori.v1.RollbackItem
+	24, // 9: wataridori.v1.HistoryResponse.entries:type_name -> wataridori.v1.HistoryEntry
+	26, // 10: wataridori.v1.HistoryEntry.time:type_name -> google.protobuf.Timestamp
+	2,  // 11: wataridori.v1.HistoryEntry.action:type_name -> wataridori.v1.Action
+	25, // 12: wataridori.v1.HistoryEntry.detail:type_name -> wataridori.v1.HistoryEntry.DetailEntry
+	3,  // 13: wataridori.v1.DeploymentService.Status:input_type -> wataridori.v1.StatusRequest
+	6,  // 14: wataridori.v1.DeploymentService.Inventory:input_type -> wataridori.v1.InventoryRequest
+	9,  // 15: wataridori.v1.DeploymentService.Apply:input_type -> wataridori.v1.ApplyRequest
+	12, // 16: wataridori.v1.DeploymentService.PlanPromote:input_type -> wataridori.v1.PlanPromoteRequest
+	14, // 17: wataridori.v1.DeploymentService.ExecutePromote:input_type -> wataridori.v1.ExecutePromoteRequest
+	17, // 18: wataridori.v1.DeploymentService.PlanRollback:input_type -> wataridori.v1.PlanRollbackRequest
+	19, // 19: wataridori.v1.DeploymentService.ExecuteRollback:input_type -> wataridori.v1.ExecuteRollbackRequest
+	22, // 20: wataridori.v1.DeploymentService.History:input_type -> wataridori.v1.HistoryRequest
+	4,  // 21: wataridori.v1.DeploymentService.Status:output_type -> wataridori.v1.StatusResponse
+	7,  // 22: wataridori.v1.DeploymentService.Inventory:output_type -> wataridori.v1.InventoryResponse
+	10, // 23: wataridori.v1.DeploymentService.Apply:output_type -> wataridori.v1.ApplyResponse
+	13, // 24: wataridori.v1.DeploymentService.PlanPromote:output_type -> wataridori.v1.PlanPromoteResponse
+	15, // 25: wataridori.v1.DeploymentService.ExecutePromote:output_type -> wataridori.v1.ExecutePromoteResponse
+	18, // 26: wataridori.v1.DeploymentService.PlanRollback:output_type -> wataridori.v1.PlanRollbackResponse
+	20, // 27: wataridori.v1.DeploymentService.ExecuteRollback:output_type -> wataridori.v1.ExecuteRollbackResponse
+	23, // 28: wataridori.v1.DeploymentService.History:output_type -> wataridori.v1.HistoryResponse
+	21, // [21:29] is the sub-list for method output_type
+	13, // [13:21] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_wataridori_v1_wataridori_proto_init() }
@@ -1621,8 +1968,8 @@ func file_wataridori_v1_wataridori_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wataridori_v1_wataridori_proto_rawDesc), len(file_wataridori_v1_wataridori_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   20,
+			NumEnums:      3,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
