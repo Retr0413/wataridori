@@ -3,10 +3,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --project tsconfig.json --noEmit"
+    "dev": "vite",
+    "build": "tsc --project tsconfig.json && vite build",
+    "typecheck": "tsc --project tsconfig.json",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "@bufbuild/protoc-gen-es": "^2.12.1",
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^5.8.3",
+    "vite": "^8.1.5"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.12.1",
+    "@connectrpc/connect": "^2.1.2",
+    "@connectrpc/connect-web": "^2.1.2",
+    "@tanstack/react-query": "^5.101.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }

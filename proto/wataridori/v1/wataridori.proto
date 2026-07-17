@@ -12,6 +12,11 @@ import "google/protobuf/timestamp.proto";
 // preview shown before a confirm prompt, and Execute re-derives it from the
 // same request so the call stays stateless.
 service DeploymentService {
+  // ListEnvironments returns the configured environments in promotion order.
+  // Reading wataridori.yaml only, it makes no Cloud Run calls. The Web UI
+  // needs it to lay out its environment columns before any status arrives.
+  rpc ListEnvironments(ListEnvironmentsRequest) returns (ListEnvironmentsResponse) {}
+
   // Status compares desired state (Git manifests) with observed state
   // (Cloud Run). See docs/spec/phase1-cli.md §2.4.
   rpc Status(StatusRequest) returns (StatusResponse) {}
@@ -62,6 +67,38 @@ enum Action {
   ACTION_APPLY = 1;
   ACTION_PROMOTE = 2;
   ACTION_ROLLBACK = 3;
+}
+
+// Policy is how an environment gets updated (manifest.Policy).
+enum Policy {
+  POLICY_UNSPECIFIED = 0;
+  POLICY_AUTO = 1;
+  POLICY_MANUAL = 2;
+}
+
+// --- Environments ---------------------------------------------------------
+
+message ListEnvironmentsRequest {}
+
+message ListEnvironmentsResponse {
+  // environments is ordered so that a promotion source always precedes its
+  // targets (dev before prod). Environments unrelated by promoteFrom are
+  // ordered by name.
+  repeated Environment environments = 1;
+}
+
+message Environment {
+  string name = 1;
+  Policy policy = 2;
+  // branch is the tracked branch, set only for policy:auto.
+  string branch = 3;
+  // promote_from names the source environment, empty for the chain head.
+  string promote_from = 4;
+  string project = 5;
+  string region = 6;
+  // image_copy_to is the destination repository when the environment has its
+  // own Artifact Registry, empty otherwise.
+  string image_copy_to = 7;
 }
 
 // --- Status ---------------------------------------------------------------

@@ -9,6 +9,7 @@ import (
 
 	v1 "github.com/Retr0413/wataridori/gen/wataridori/v1"
 	"github.com/Retr0413/wataridori/internal/core"
+	"github.com/Retr0413/wataridori/internal/manifest"
 	"github.com/Retr0413/wataridori/internal/store"
 )
 
@@ -25,6 +26,35 @@ func rpcError(err error) error {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewError(connect.CodeInternal, err)
+}
+
+// --- Environments ---
+
+func environmentsToProto(res *core.ListEnvironmentsResult) *v1.ListEnvironmentsResponse {
+	out := &v1.ListEnvironmentsResponse{}
+	for _, e := range res.Environments {
+		out.Environments = append(out.Environments, &v1.Environment{
+			Name:        e.Name,
+			Policy:      policyToProto(e.Policy),
+			Branch:      e.Branch,
+			PromoteFrom: e.PromoteFrom,
+			Project:     e.Project,
+			Region:      e.Region,
+			ImageCopyTo: e.ImageCopyTo,
+		})
+	}
+	return out
+}
+
+func policyToProto(p string) v1.Policy {
+	switch manifest.Policy(p) {
+	case manifest.PolicyAuto:
+		return v1.Policy_POLICY_AUTO
+	case manifest.PolicyManual:
+		return v1.Policy_POLICY_MANUAL
+	default:
+		return v1.Policy_POLICY_UNSPECIFIED
+	}
 }
 
 // --- Status ---

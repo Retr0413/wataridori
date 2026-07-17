@@ -18,6 +18,7 @@ import (
 
 // fakeUseCases records the requests it receives and returns canned results.
 type fakeUseCases struct {
+	envsRes     *core.ListEnvironmentsResult
 	statusReq   core.StatusRequest
 	statusRes   *core.StatusResult
 	invReq      core.InventoryRequest
@@ -31,6 +32,10 @@ type fakeUseCases struct {
 	historyRes  *core.HistoryResult
 
 	planPromoteCalls, execPromoteCalls int
+}
+
+func (f *fakeUseCases) ListEnvironments(_ context.Context, _ core.ListEnvironmentsRequest) (*core.ListEnvironmentsResult, error) {
+	return f.envsRes, nil
 }
 
 func (f *fakeUseCases) Status(_ context.Context, req core.StatusRequest) (*core.StatusResult, error) {
