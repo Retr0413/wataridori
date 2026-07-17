@@ -8,6 +8,11 @@ coverage.out
 # Node / frontend
 node_modules/
 
+# Playwright artifacts (docs/screenshots is committed on purpose)
+/web/test-results/
+/web/playwright-report/
+/web/blob-report/
+
 # Local state
 *.sqlite
 *.db
