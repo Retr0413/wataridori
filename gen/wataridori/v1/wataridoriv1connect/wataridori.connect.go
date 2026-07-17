@@ -36,6 +36,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// DeploymentServiceListEnvironmentsProcedure is the fully-qualified name of the DeploymentService's
+	// ListEnvironments RPC.
+	DeploymentServiceListEnvironmentsProcedure = "/wataridori.v1.DeploymentService/ListEnvironments"
 	// DeploymentServiceStatusProcedure is the fully-qualified name of the DeploymentService's Status
 	// RPC.
 	DeploymentServiceStatusProcedure = "/wataridori.v1.DeploymentService/Status"
@@ -63,6 +66,10 @@ const (
 
 // DeploymentServiceClient is a client for the wataridori.v1.DeploymentService service.
 type DeploymentServiceClient interface {
+	// ListEnvironments returns the configured environments in promotion order.
+	// Reading wataridori.yaml only, it makes no Cloud Run calls. The Web UI
+	// needs it to lay out its environment columns before any status arrives.
+	ListEnvironments(context.Context, *connect.Request[v1.ListEnvironmentsRequest]) (*connect.Response[v1.ListEnvironmentsResponse], error)
 	// Status compares desired state (Git manifests) with observed state
 	// (Cloud Run). See docs/spec/phase1-cli.md §2.4.
 	Status(context.Context, *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error)
@@ -94,6 +101,12 @@ func NewDeploymentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 	baseURL = strings.TrimRight(baseURL, "/")
 	deploymentServiceMethods := v1.File_wataridori_v1_wataridori_proto.Services().ByName("DeploymentService").Methods()
 	return &deploymentServiceClient{
+		listEnvironments: connect.NewClient[v1.ListEnvironmentsRequest, v1.ListEnvironmentsResponse](
+			httpClient,
+			baseURL+DeploymentServiceListEnvironmentsProcedure,
+			connect.WithSchema(deploymentServiceMethods.ByName("ListEnvironments")),
+			connect.WithClientOptions(opts...),
+		),
 		status: connect.NewClient[v1.StatusRequest, v1.StatusResponse](
 			httpClient,
 			baseURL+DeploymentServiceStatusProcedure,
@@ -147,14 +160,20 @@ func NewDeploymentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 
 // deploymentServiceClient implements DeploymentServiceClient.
 type deploymentServiceClient struct {
-	status          *connect.Client[v1.StatusRequest, v1.StatusResponse]
-	inventory       *connect.Client[v1.InventoryRequest, v1.InventoryResponse]
-	apply           *connect.Client[v1.ApplyRequest, v1.ApplyResponse]
-	planPromote     *connect.Client[v1.PlanPromoteRequest, v1.PlanPromoteResponse]
-	executePromote  *connect.Client[v1.ExecutePromoteRequest, v1.ExecutePromoteResponse]
-	planRollback    *connect.Client[v1.PlanRollbackRequest, v1.PlanRollbackResponse]
-	executeRollback *connect.Client[v1.ExecuteRollbackRequest, v1.ExecuteRollbackResponse]
-	history         *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
+	listEnvironments *connect.Client[v1.ListEnvironmentsRequest, v1.ListEnvironmentsResponse]
+	status           *connect.Client[v1.StatusRequest, v1.StatusResponse]
+	inventory        *connect.Client[v1.InventoryRequest, v1.InventoryResponse]
+	apply            *connect.Client[v1.ApplyRequest, v1.ApplyResponse]
+	planPromote      *connect.Client[v1.PlanPromoteRequest, v1.PlanPromoteResponse]
+	executePromote   *connect.Client[v1.ExecutePromoteRequest, v1.ExecutePromoteResponse]
+	planRollback     *connect.Client[v1.PlanRollbackRequest, v1.PlanRollbackResponse]
+	executeRollback  *connect.Client[v1.ExecuteRollbackRequest, v1.ExecuteRollbackResponse]
+	history          *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
+}
+
+// ListEnvironments calls wataridori.v1.DeploymentService.ListEnvironments.
+func (c *deploymentServiceClient) ListEnvironments(ctx context.Context, req *connect.Request[v1.ListEnvironmentsRequest]) (*connect.Response[v1.ListEnvironmentsResponse], error) {
+	return c.listEnvironments.CallUnary(ctx, req)
 }
 
 // Status calls wataridori.v1.DeploymentService.Status.
@@ -199,6 +218,10 @@ func (c *deploymentServiceClient) History(ctx context.Context, req *connect.Requ
 
 // DeploymentServiceHandler is an implementation of the wataridori.v1.DeploymentService service.
 type DeploymentServiceHandler interface {
+	// ListEnvironments returns the configured environments in promotion order.
+	// Reading wataridori.yaml only, it makes no Cloud Run calls. The Web UI
+	// needs it to lay out its environment columns before any status arrives.
+	ListEnvironments(context.Context, *connect.Request[v1.ListEnvironmentsRequest]) (*connect.Response[v1.ListEnvironmentsResponse], error)
 	// Status compares desired state (Git manifests) with observed state
 	// (Cloud Run). See docs/spec/phase1-cli.md §2.4.
 	Status(context.Context, *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error)
@@ -226,6 +249,12 @@ type DeploymentServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	deploymentServiceMethods := v1.File_wataridori_v1_wataridori_proto.Services().ByName("DeploymentService").Methods()
+	deploymentServiceListEnvironmentsHandler := connect.NewUnaryHandler(
+		DeploymentServiceListEnvironmentsProcedure,
+		svc.ListEnvironments,
+		connect.WithSchema(deploymentServiceMethods.ByName("ListEnvironments")),
+		connect.WithHandlerOptions(opts...),
+	)
 	deploymentServiceStatusHandler := connect.NewUnaryHandler(
 		DeploymentServiceStatusProcedure,
 		svc.Status,
@@ -276,6 +305,8 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 	)
 	return "/wataridori.v1.DeploymentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case DeploymentServiceListEnvironmentsProcedure:
+			deploymentServiceListEnvironmentsHandler.ServeHTTP(w, r)
 		case DeploymentServiceStatusProcedure:
 			deploymentServiceStatusHandler.ServeHTTP(w, r)
 		case DeploymentServiceInventoryProcedure:
@@ -300,6 +331,10 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 
 // UnimplementedDeploymentServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedDeploymentServiceHandler struct{}
+
+func (UnimplementedDeploymentServiceHandler) ListEnvironments(context.Context, *connect.Request[v1.ListEnvironmentsRequest]) (*connect.Response[v1.ListEnvironmentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wataridori.v1.DeploymentService.ListEnvironments is not implemented"))
+}
 
 func (UnimplementedDeploymentServiceHandler) Status(context.Context, *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wataridori.v1.DeploymentService.Status is not implemented"))

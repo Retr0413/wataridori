@@ -14,6 +14,7 @@ import (
 // UseCases is the slice of core.Engine the RPC handlers depend on.
 // *core.Engine satisfies it; tests inject a fake.
 type UseCases interface {
+	ListEnvironments(context.Context, core.ListEnvironmentsRequest) (*core.ListEnvironmentsResult, error)
 	Status(context.Context, core.StatusRequest) (*core.StatusResult, error)
 	Inventory(context.Context, core.InventoryRequest) (*core.InventoryResult, error)
 	Apply(context.Context, core.ApplyRequest) (*core.ApplyResult, error)
@@ -55,6 +56,20 @@ func (s *Server) use(ctx context.Context) (UseCases, func(), error) {
 		return nil, func() {}, connect.NewError(connect.CodeInternal, err)
 	}
 	return uc, cleanup, nil
+}
+
+func (s *Server) ListEnvironments(ctx context.Context, _ *connect.Request[v1.ListEnvironmentsRequest]) (*connect.Response[v1.ListEnvironmentsResponse], error) {
+	uc, cleanup, err := s.use(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	res, err := uc.ListEnvironments(ctx, core.ListEnvironmentsRequest{})
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return connect.NewResponse(environmentsToProto(res)), nil
 }
 
 func (s *Server) Status(ctx context.Context, req *connect.Request[v1.StatusRequest]) (*connect.Response[v1.StatusResponse], error) {
