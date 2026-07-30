@@ -1,10 +1,15 @@
 version: 2
 project_name: wataridori
 
+git:
+  tag_sort: smartsemver
+
 builds:
   - main: ./cmd/wataridori
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
     goos:
       - linux
       - darwin
@@ -24,20 +29,26 @@ kos:
       - ghcr.io/retr0413/wataridori
     tags:
       - "{{ .Version }}"
-      - latest
     bare: true
     base_image: gcr.io/distroless/static:nonroot
     platforms:
       - linux/amd64
       - linux/arm64
+    disable: "{{ .IsSnapshot }}"
+
+sboms:
+  - artifacts: archive
+    disable: false
 
 checksum:
   name_template: checksums.txt
+  algorithm: sha256
 
 changelog:
   use: github
   sort: asc
 
 release:
-  draft: false
+  draft: true
   prerelease: auto
+  include_meta: true
