@@ -60,10 +60,14 @@ Knative YAML ではなく、Cloud Run Admin API v2 の `Service` proto に素直
 
 ```yaml
 name: my-app
+cloudRunName: my-app-dev # 省略可(デフォルト: name)
 image: asia-northeast1-docker.pkg.dev/my-app-dev/images/my-app@sha256:abc123...
 env:
   - name: LOG_LEVEL
     value: debug
+  - name: JWT_SECRET       # Secret Manager 参照
+    secret: my-app-jwt-secret-dev
+    version: latest        # 省略可(デフォルト latest)
 resources:
   cpu: "1"
   memory: 512Mi
@@ -80,7 +84,34 @@ port: 8080               # 省略可(デフォルト 8080)
 - `image` は **digest 参照(`@sha256:`)のみ受理**。タグ参照はエラー
   (初回セットアップ用に `wataridori resolve` 的な補助は Phase 1 ではやらない。
   digest の初期値はユーザーが `crane digest` 等で書く。README に手順を書く)
-- Phase 1 で対応するフィールドは上記のみ。VPC / volumes / secrets 等の追加は Phase 2 以降の Issue で判断
+- Cloud Run へ渡る名前(`cloudRunName`、省略時は `name`)は Cloud Run の
+  service 名の規則(小文字英数字とハイフン、先頭は英字、63 文字以内)を満たすこと
+- `env` の 1 要素は `value` か `secret` のどちらか一方。両方指定はエラー。
+  `secret` なしの `version` もエラー。`name` の重複もエラー
+- 上記以外のフィールド(VPC / volumes / CPU always-allocated 等)は未対応。
+  追加は Issue で判断
+
+#### `name` と `cloudRunName` の役割分担(Phase 2 で追加)
+
+- `name` は**環境をまたいだサービスの同一性**。`promote` はこの名前で昇格元と
+  昇格先を対応付け、UI は Pipeline / Timeline の行をこの名前でまとめる
+- `cloudRunName` は**その環境の Cloud Run service 名**。Cloud Run API を叩く
+  ときだけ使う
+
+1 プロジェクト内に `my-app-dev` / `my-app-prod` を並べる構成では、service 名に
+環境が埋まっているため環境間で共通の名前が存在せず、`name` だけでは昇格の
+対応付けができない。`name: my-app` + `cloudRunName: my-app-dev` と書き分けることで、
+Cloud Run 側の命名を変えずに昇格できる。
+
+#### secret 参照の env(Phase 2 で追加)
+
+`apply` は service を**全置換**する(§2.1)。したがってマニフェストに書かれて
+いない env は、実際の Cloud Run から消える。Secret Manager 参照の env を
+マニフェストで表現できないと、apply が secret を落として service を壊す。
+`secret` はこの事故を防ぐために必要な最小のフィールドとして追加した。
+
+secret の**値**は Cloud Run が実行時に解決する。Wataridori は参照だけを扱い、
+値を読むことも Git に書くこともない。
 
 ### 1.3 昇格のセマンティクス(最重要の設計判断)
 
@@ -96,17 +127,35 @@ port: 8080               # 省略可(デフォルト 8080)
 
 終了コード: `0` 成功 / `1` エラー / `2` ドリフト検知(`status --check` のみ)
 
-### 2.1 `wataridori apply --env <env> [--service <name>] [--dry-run]`
+### 2.1 `wataridori apply --env <env> [--service <name>] [--dry-run] [--force]`
 
 マニフェストどおりに Cloud Run へデプロイする。
 
 1. マニフェストを読み込み・検証する
-2. 対象サービスごとに Cloud Run の現状を取得し、差分があれば `UpdateService`(なければ `CreateService`)
-3. 新リビジョンが Ready になるまで待機(タイムアウト: `--timeout`、デフォルト 5 分)
-4. 結果(サービス名・リビジョン名・digest)を出力し、SQLite に履歴を記録する
+2. 対象サービスごとに Cloud Run の現状を取得する
+3. **保護チェック**: 実サービスに、マニフェストで表現できない設定があれば
+   デフォルトでは apply を中止する(下記)
+4. 差分があれば `UpdateService`(なければ `CreateService`)
+5. 新リビジョンが Ready になるまで待機(タイムアウト: `--timeout`、デフォルト 5 分)
+6. 結果(サービス名・リビジョン名・digest)を出力し、SQLite に履歴を記録する
 
 - `--dry-run`: 差分(現状 → あるべき状態)の表示のみ。API の書き込みは行わない
+- `--force`: 保護チェックを無視して apply する
 - 失敗時: Cloud Run 側のエラー(Ready にならない理由)をそのまま表示する。自動ロールバックはしない(将来対応)
+
+#### 保護チェック(Phase 2 で追加)
+
+apply は service を**全置換**する。マニフェストのスキーマは意図的に小さいため、
+Terraform や gcloud で作られた service には、マニフェストに書けない設定
+(startup / liveness probe、request timeout、VPC access、volumes、サイドカー、
+CPU throttling など)が付いていることがある。そのまま apply すると、**それらが
+黙って消える**。
+
+そこで apply の前に実サービスを読み、マニフェストで表現できない設定が
+見つかった場合はエラーで中止する。`--dry-run` は中止せず警告として表示する。
+
+意図的に消す場合、または設定を Terraform 側の管理に移した場合は `--force` を使う。
+`--force` でも消える設定の一覧は出力する(黙って消さない)。
 
 ### 2.2 `wataridori promote --to <env> [--from <env>] [--service <name>] [--yes]`
 

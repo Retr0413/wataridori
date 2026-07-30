@@ -62,6 +62,9 @@ const (
 	// DeploymentServiceHistoryProcedure is the fully-qualified name of the DeploymentService's History
 	// RPC.
 	DeploymentServiceHistoryProcedure = "/wataridori.v1.DeploymentService/History"
+	// DeploymentServiceTimelineProcedure is the fully-qualified name of the DeploymentService's
+	// Timeline RPC.
+	DeploymentServiceTimelineProcedure = "/wataridori.v1.DeploymentService/Timeline"
 )
 
 // DeploymentServiceClient is a client for the wataridori.v1.DeploymentService service.
@@ -88,6 +91,12 @@ type DeploymentServiceClient interface {
 	ExecuteRollback(context.Context, *connect.Request[v1.ExecuteRollbackRequest]) (*connect.Response[v1.ExecuteRollbackResponse], error)
 	// History lists recorded operations, newest first. §2.5.
 	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
+	// Timeline reconstructs the deployment history from Cloud Run revisions,
+	// newest first. History only knows what Wataridori itself did; Timeline
+	// reads the observed side, so deploys made by a CI pipeline or by hand
+	// appear too. That makes it the view that explains how two environments
+	// drifted apart.
+	Timeline(context.Context, *connect.Request[v1.TimelineRequest]) (*connect.Response[v1.TimelineResponse], error)
 }
 
 // NewDeploymentServiceClient constructs a client for the wataridori.v1.DeploymentService service.
@@ -155,6 +164,12 @@ func NewDeploymentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(deploymentServiceMethods.ByName("History")),
 			connect.WithClientOptions(opts...),
 		),
+		timeline: connect.NewClient[v1.TimelineRequest, v1.TimelineResponse](
+			httpClient,
+			baseURL+DeploymentServiceTimelineProcedure,
+			connect.WithSchema(deploymentServiceMethods.ByName("Timeline")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -169,6 +184,7 @@ type deploymentServiceClient struct {
 	planRollback     *connect.Client[v1.PlanRollbackRequest, v1.PlanRollbackResponse]
 	executeRollback  *connect.Client[v1.ExecuteRollbackRequest, v1.ExecuteRollbackResponse]
 	history          *connect.Client[v1.HistoryRequest, v1.HistoryResponse]
+	timeline         *connect.Client[v1.TimelineRequest, v1.TimelineResponse]
 }
 
 // ListEnvironments calls wataridori.v1.DeploymentService.ListEnvironments.
@@ -216,6 +232,11 @@ func (c *deploymentServiceClient) History(ctx context.Context, req *connect.Requ
 	return c.history.CallUnary(ctx, req)
 }
 
+// Timeline calls wataridori.v1.DeploymentService.Timeline.
+func (c *deploymentServiceClient) Timeline(ctx context.Context, req *connect.Request[v1.TimelineRequest]) (*connect.Response[v1.TimelineResponse], error) {
+	return c.timeline.CallUnary(ctx, req)
+}
+
 // DeploymentServiceHandler is an implementation of the wataridori.v1.DeploymentService service.
 type DeploymentServiceHandler interface {
 	// ListEnvironments returns the configured environments in promotion order.
@@ -240,6 +261,12 @@ type DeploymentServiceHandler interface {
 	ExecuteRollback(context.Context, *connect.Request[v1.ExecuteRollbackRequest]) (*connect.Response[v1.ExecuteRollbackResponse], error)
 	// History lists recorded operations, newest first. §2.5.
 	History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error)
+	// Timeline reconstructs the deployment history from Cloud Run revisions,
+	// newest first. History only knows what Wataridori itself did; Timeline
+	// reads the observed side, so deploys made by a CI pipeline or by hand
+	// appear too. That makes it the view that explains how two environments
+	// drifted apart.
+	Timeline(context.Context, *connect.Request[v1.TimelineRequest]) (*connect.Response[v1.TimelineResponse], error)
 }
 
 // NewDeploymentServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -303,6 +330,12 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 		connect.WithSchema(deploymentServiceMethods.ByName("History")),
 		connect.WithHandlerOptions(opts...),
 	)
+	deploymentServiceTimelineHandler := connect.NewUnaryHandler(
+		DeploymentServiceTimelineProcedure,
+		svc.Timeline,
+		connect.WithSchema(deploymentServiceMethods.ByName("Timeline")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/wataridori.v1.DeploymentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DeploymentServiceListEnvironmentsProcedure:
@@ -323,6 +356,8 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 			deploymentServiceExecuteRollbackHandler.ServeHTTP(w, r)
 		case DeploymentServiceHistoryProcedure:
 			deploymentServiceHistoryHandler.ServeHTTP(w, r)
+		case DeploymentServiceTimelineProcedure:
+			deploymentServiceTimelineHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -366,4 +401,8 @@ func (UnimplementedDeploymentServiceHandler) ExecuteRollback(context.Context, *c
 
 func (UnimplementedDeploymentServiceHandler) History(context.Context, *connect.Request[v1.HistoryRequest]) (*connect.Response[v1.HistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wataridori.v1.DeploymentService.History is not implemented"))
+}
+
+func (UnimplementedDeploymentServiceHandler) Timeline(context.Context, *connect.Request[v1.TimelineRequest]) (*connect.Response[v1.TimelineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wataridori.v1.DeploymentService.Timeline is not implemented"))
 }

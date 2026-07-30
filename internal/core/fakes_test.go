@@ -21,9 +21,10 @@ const (
 type fakeCloudRun struct {
 	deployed   map[string]*cloudrun.Deployed // key: env/service
 	revisions  map[string][]cloudrun.Revision
-	applied    []string          // env/service actually deployed
-	traffic    map[string]string // env/service -> pinned revision
-	applyImage map[string]string // image recorded at Apply time
+	applied    []string            // env/service actually deployed
+	traffic    map[string]string   // env/service -> pinned revision
+	applyImage map[string]string   // image recorded at Apply time
+	unmanaged  map[string][]string // env/runName -> settings apply would drop
 }
 
 func newFakeCloudRun() *fakeCloudRun {
@@ -32,6 +33,7 @@ func newFakeCloudRun() *fakeCloudRun {
 		revisions:  map[string][]cloudrun.Revision{},
 		traffic:    map[string]string{},
 		applyImage: map[string]string{},
+		unmanaged:  map[string][]string{},
 	}
 }
 
@@ -64,6 +66,10 @@ func (f *fakeCloudRun) Apply(_ context.Context, env *manifest.Environment, svc *
 
 func (f *fakeCloudRun) ListRevisions(_ context.Context, env *manifest.Environment, service string) ([]cloudrun.Revision, error) {
 	return f.revisions[key(env, service)], nil
+}
+
+func (f *fakeCloudRun) UnmanagedSettings(_ context.Context, env *manifest.Environment, svc *manifest.Service) ([]string, error) {
+	return f.unmanaged[key(env, svc.RunName())], nil
 }
 
 func (f *fakeCloudRun) SetTraffic(_ context.Context, env *manifest.Environment, service, revision string) error {

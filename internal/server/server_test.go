@@ -30,6 +30,8 @@ type fakeUseCases struct {
 	promoteRes  *core.PromoteResult
 	promoteErr  error
 	historyRes  *core.HistoryResult
+	timelineReq core.TimelineRequest
+	timelineRes *core.TimelineResult
 
 	planPromoteCalls, execPromoteCalls int
 }
@@ -77,6 +79,11 @@ func (f *fakeUseCases) ExecuteRollback(_ context.Context, _ *core.RollbackPlan) 
 
 func (f *fakeUseCases) ListHistory(_ context.Context, _ core.HistoryRequest) (*core.HistoryResult, error) {
 	return f.historyRes, nil
+}
+
+func (f *fakeUseCases) Timeline(_ context.Context, req core.TimelineRequest) (*core.TimelineResult, error) {
+	f.timelineReq = req
+	return f.timelineRes, nil
 }
 
 // srv wires the fake behind a Server, tracking cleanup invocation.

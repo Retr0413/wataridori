@@ -59,6 +59,47 @@ func TestBuildServiceFull(t *testing.T) {
 	}
 }
 
+// Every apply is a full replacement, so a secret-backed variable has to
+// survive the round trip as a reference — dropping it would strip the secret
+// off the running service.
+func TestBuildServiceBindsSecretEnvVars(t *testing.T) {
+	svc := BuildService(env(), &manifest.Service{
+		Name:  "my-app",
+		Image: "img@sha256:abc",
+		Env: []manifest.EnvVar{
+			{Name: "LOG_LEVEL", Value: "warn"},
+			{Name: "JWT_SECRET", Secret: "my-app-jwt-prod"},
+			{Name: "PINNED", Secret: "my-app-pinned", Version: "4"},
+		},
+	})
+
+	vars := svc.Template.Containers[0].Env
+	if len(vars) != 3 {
+		t.Fatalf("Env = %+v, want 3 entries", vars)
+	}
+	if vars[0].GetValue() != "warn" {
+		t.Errorf("literal value = %q, want warn", vars[0].GetValue())
+	}
+	ref := vars[1].GetValueSource().GetSecretKeyRef()
+	if ref.GetSecret() != "my-app-jwt-prod" || ref.GetVersion() != "latest" {
+		t.Errorf("secret ref = %+v, want my-app-jwt-prod@latest", ref)
+	}
+	if v := vars[2].GetValueSource().GetSecretKeyRef().GetVersion(); v != "4" {
+		t.Errorf("pinned version = %q, want 4", v)
+	}
+}
+
+// The Cloud Run resource name follows cloudRunName; the manifest's own name
+// is only an identity for promotion and the UI.
+func TestBuildServiceUsesCloudRunName(t *testing.T) {
+	svc := BuildService(env(), &manifest.Service{
+		Name: "my-app", CloudRunName: "my-app-prod", Image: "img@sha256:abc",
+	})
+	if want := "projects/my-app-prod/locations/asia-northeast1/services/my-app-prod"; svc.Name != want {
+		t.Errorf("Name = %q, want %q", svc.Name, want)
+	}
+}
+
 func TestBuildServiceDefaults(t *testing.T) {
 	svc := BuildService(env(), &manifest.Service{Name: "min", Image: "img@sha256:abc"})
 	c := svc.Template.Containers[0]

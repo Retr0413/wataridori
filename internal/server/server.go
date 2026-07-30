@@ -23,6 +23,7 @@ type UseCases interface {
 	PlanRollback(context.Context, core.RollbackRequest) (*core.RollbackPlan, error)
 	ExecuteRollback(context.Context, *core.RollbackPlan) (*core.RollbackResult, error)
 	ListHistory(context.Context, core.HistoryRequest) (*core.HistoryResult, error)
+	Timeline(context.Context, core.TimelineRequest) (*core.TimelineResult, error)
 }
 
 // EngineFunc builds the use cases for one request. The returned cleanup is
@@ -203,4 +204,22 @@ func (s *Server) History(ctx context.Context, req *connect.Request[v1.HistoryReq
 		return nil, rpcError(err)
 	}
 	return connect.NewResponse(historyToProto(res)), nil
+}
+
+func (s *Server) Timeline(ctx context.Context, req *connect.Request[v1.TimelineRequest]) (*connect.Response[v1.TimelineResponse], error) {
+	uc, cleanup, err := s.use(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	res, err := uc.Timeline(ctx, core.TimelineRequest{
+		Env:     req.Msg.GetEnv(),
+		Service: req.Msg.GetService(),
+		Limit:   int(req.Msg.GetLimit()),
+	})
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return connect.NewResponse(timelineToProto(res)), nil
 }

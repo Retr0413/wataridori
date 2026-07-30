@@ -518,22 +518,26 @@ func (x *StatusResponse) GetDrift() bool {
 // ServiceStatus carries the CLI table columns plus the fields the Phase 2 UI
 // needs (traffic, ready reason, deep links).
 type ServiceStatus struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Env            string                 `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`
-	Service        string                 `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
-	DesiredImage   string                 `protobuf:"bytes,3,opt,name=desired_image,json=desiredImage,proto3" json:"desired_image,omitempty"`
-	DesiredDigest  string                 `protobuf:"bytes,4,opt,name=desired_digest,json=desiredDigest,proto3" json:"desired_digest,omitempty"`
-	ActualImage    string                 `protobuf:"bytes,5,opt,name=actual_image,json=actualImage,proto3" json:"actual_image,omitempty"`
-	ActualDigest   string                 `protobuf:"bytes,6,opt,name=actual_digest,json=actualDigest,proto3" json:"actual_digest,omitempty"`
-	Revision       string                 `protobuf:"bytes,7,opt,name=revision,proto3" json:"revision,omitempty"`
-	State          SyncState              `protobuf:"varint,8,opt,name=state,proto3,enum=wataridori.v1.SyncState" json:"state,omitempty"`
-	Ready          bool                   `protobuf:"varint,9,opt,name=ready,proto3" json:"ready,omitempty"`
-	ReadyMessage   string                 `protobuf:"bytes,10,opt,name=ready_message,json=readyMessage,proto3" json:"ready_message,omitempty"`
-	TrafficPercent int32                  `protobuf:"varint,11,opt,name=traffic_percent,json=trafficPercent,proto3" json:"traffic_percent,omitempty"`
-	Url            string                 `protobuf:"bytes,12,opt,name=url,proto3" json:"url,omitempty"`
-	ConsoleUrl     string                 `protobuf:"bytes,13,opt,name=console_url,json=consoleUrl,proto3" json:"console_url,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Env   string                 `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`
+	// service is the manifest identity, shared across environments.
+	Service        string    `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
+	DesiredImage   string    `protobuf:"bytes,3,opt,name=desired_image,json=desiredImage,proto3" json:"desired_image,omitempty"`
+	DesiredDigest  string    `protobuf:"bytes,4,opt,name=desired_digest,json=desiredDigest,proto3" json:"desired_digest,omitempty"`
+	ActualImage    string    `protobuf:"bytes,5,opt,name=actual_image,json=actualImage,proto3" json:"actual_image,omitempty"`
+	ActualDigest   string    `protobuf:"bytes,6,opt,name=actual_digest,json=actualDigest,proto3" json:"actual_digest,omitempty"`
+	Revision       string    `protobuf:"bytes,7,opt,name=revision,proto3" json:"revision,omitempty"`
+	State          SyncState `protobuf:"varint,8,opt,name=state,proto3,enum=wataridori.v1.SyncState" json:"state,omitempty"`
+	Ready          bool      `protobuf:"varint,9,opt,name=ready,proto3" json:"ready,omitempty"`
+	ReadyMessage   string    `protobuf:"bytes,10,opt,name=ready_message,json=readyMessage,proto3" json:"ready_message,omitempty"`
+	TrafficPercent int32     `protobuf:"varint,11,opt,name=traffic_percent,json=trafficPercent,proto3" json:"traffic_percent,omitempty"`
+	Url            string    `protobuf:"bytes,12,opt,name=url,proto3" json:"url,omitempty"`
+	ConsoleUrl     string    `protobuf:"bytes,13,opt,name=console_url,json=consoleUrl,proto3" json:"console_url,omitempty"`
+	// run_name is the Cloud Run service behind it, which may differ per
+	// environment (the manifest's cloudRunName).
+	RunName       string `protobuf:"bytes,14,opt,name=run_name,json=runName,proto3" json:"run_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServiceStatus) Reset() {
@@ -657,6 +661,13 @@ func (x *ServiceStatus) GetConsoleUrl() string {
 	return ""
 }
 
+func (x *ServiceStatus) GetRunName() string {
+	if x != nil {
+		return x.RunName
+	}
+	return ""
+}
+
 type InventoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Empty env means all configured environments.
@@ -764,8 +775,11 @@ type InventoryItem struct {
 	Url            string                 `protobuf:"bytes,14,opt,name=url,proto3" json:"url,omitempty"`
 	ConsoleUrl     string                 `protobuf:"bytes,15,opt,name=console_url,json=consoleUrl,proto3" json:"console_url,omitempty"`
 	State          InventoryState         `protobuf:"varint,16,opt,name=state,proto3,enum=wataridori.v1.InventoryState" json:"state,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// manifest_service is the manifest identity when it differs from the Cloud
+	// Run service name in `service`.
+	ManifestService string `protobuf:"bytes,17,opt,name=manifest_service,json=manifestService,proto3" json:"manifest_service,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *InventoryItem) Reset() {
@@ -910,6 +924,13 @@ func (x *InventoryItem) GetState() InventoryState {
 	return InventoryState_INVENTORY_STATE_UNSPECIFIED
 }
 
+func (x *InventoryItem) GetManifestService() string {
+	if x != nil {
+		return x.ManifestService
+	}
+	return ""
+}
+
 type ApplyRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Env     string                 `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`
@@ -918,8 +939,11 @@ type ApplyRequest struct {
 	// timeout_seconds bounds the wait for a revision to become ready.
 	// 0 means the server default (5 minutes).
 	TimeoutSeconds int32 `protobuf:"varint,4,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// force applies even when the running service carries configuration the
+	// manifest cannot express, which the replacement would drop.
+	Force         bool `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ApplyRequest) Reset() {
@@ -978,6 +1002,13 @@ func (x *ApplyRequest) GetTimeoutSeconds() int32 {
 		return x.TimeoutSeconds
 	}
 	return 0
+}
+
+func (x *ApplyRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
 }
 
 type ApplyResponse struct {
@@ -1050,7 +1081,11 @@ type ApplyServiceResult struct {
 	Revision string `protobuf:"bytes,4,opt,name=revision,proto3" json:"revision,omitempty"`
 	Url      string `protobuf:"bytes,5,opt,name=url,proto3" json:"url,omitempty"`
 	// in_sync means desired == actual.
-	InSync        bool `protobuf:"varint,6,opt,name=in_sync,json=inSync,proto3" json:"in_sync,omitempty"`
+	InSync bool `protobuf:"varint,6,opt,name=in_sync,json=inSync,proto3" json:"in_sync,omitempty"`
+	// run_name is the Cloud Run service actually written.
+	RunName string `protobuf:"bytes,7,opt,name=run_name,json=runName,proto3" json:"run_name,omitempty"`
+	// unmanaged lists settings on the running service this apply would drop.
+	Unmanaged     []string `protobuf:"bytes,8,rep,name=unmanaged,proto3" json:"unmanaged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1125,6 +1160,20 @@ func (x *ApplyServiceResult) GetInSync() bool {
 		return x.InSync
 	}
 	return false
+}
+
+func (x *ApplyServiceResult) GetRunName() string {
+	if x != nil {
+		return x.RunName
+	}
+	return ""
+}
+
+func (x *ApplyServiceResult) GetUnmanaged() []string {
+	if x != nil {
+		return x.Unmanaged
+	}
+	return nil
 }
 
 type PlanPromoteRequest struct {
@@ -1687,8 +1736,10 @@ type RollbackItem struct {
 	CurrentImage    string                 `protobuf:"bytes,3,opt,name=current_image,json=currentImage,proto3" json:"current_image,omitempty"`
 	TargetRevision  string                 `protobuf:"bytes,4,opt,name=target_revision,json=targetRevision,proto3" json:"target_revision,omitempty"`
 	TargetImage     string                 `protobuf:"bytes,5,opt,name=target_image,json=targetImage,proto3" json:"target_image,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// run_name is the Cloud Run service whose traffic moves.
+	RunName       string `protobuf:"bytes,6,opt,name=run_name,json=runName,proto3" json:"run_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RollbackItem) Reset() {
@@ -1752,6 +1803,13 @@ func (x *RollbackItem) GetTargetRevision() string {
 func (x *RollbackItem) GetTargetImage() string {
 	if x != nil {
 		return x.TargetImage
+	}
+	return ""
+}
+
+func (x *RollbackItem) GetRunName() string {
+	if x != nil {
+		return x.RunName
 	}
 	return ""
 }
@@ -1953,6 +2011,250 @@ func (x *HistoryEntry) GetDetail() map[string]string {
 	return nil
 }
 
+type TimelineRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Env     string                 `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`         // optional filter, empty means all environments
+	Service string                 `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"` // optional filter
+	// limit bounds the revisions read per service. 0 means the server default.
+	Limit         int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimelineRequest) Reset() {
+	*x = TimelineRequest{}
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimelineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimelineRequest) ProtoMessage() {}
+
+func (x *TimelineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimelineRequest.ProtoReflect.Descriptor instead.
+func (*TimelineRequest) Descriptor() ([]byte, []int) {
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *TimelineRequest) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+func (x *TimelineRequest) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
+func (x *TimelineRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type TimelineResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// entries are merged across environments and sorted newest first, so two
+	// environments' deploys interleave on one axis.
+	Entries       []*TimelineEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimelineResponse) Reset() {
+	*x = TimelineResponse{}
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimelineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimelineResponse) ProtoMessage() {}
+
+func (x *TimelineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimelineResponse.ProtoReflect.Descriptor instead.
+func (*TimelineResponse) Descriptor() ([]byte, []int) {
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *TimelineResponse) GetEntries() []*TimelineEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+// TimelineEntry is one Cloud Run revision of one managed service.
+type TimelineEntry struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Env            string                 `protobuf:"bytes,1,opt,name=env,proto3" json:"env,omitempty"`
+	Service        string                 `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
+	Revision       string                 `protobuf:"bytes,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	Image          string                 `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
+	Digest         string                 `protobuf:"bytes,5,opt,name=digest,proto3" json:"digest,omitempty"`
+	CreateTime     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	Ready          bool                   `protobuf:"varint,7,opt,name=ready,proto3" json:"ready,omitempty"`
+	TrafficPercent int32                  `protobuf:"varint,8,opt,name=traffic_percent,json=trafficPercent,proto3" json:"traffic_percent,omitempty"`
+	// current marks the revision serving the largest share of traffic.
+	Current bool `protobuf:"varint,9,opt,name=current,proto3" json:"current,omitempty"`
+	// desired marks the revision whose digest the Git manifest points at. When
+	// current and desired sit on different rows, that gap is the drift.
+	Desired    bool   `protobuf:"varint,10,opt,name=desired,proto3" json:"desired,omitempty"`
+	ConsoleUrl string `protobuf:"bytes,11,opt,name=console_url,json=consoleUrl,proto3" json:"console_url,omitempty"`
+	// run_name is the Cloud Run service the revision belongs to.
+	RunName       string `protobuf:"bytes,12,opt,name=run_name,json=runName,proto3" json:"run_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimelineEntry) Reset() {
+	*x = TimelineEntry{}
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimelineEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimelineEntry) ProtoMessage() {}
+
+func (x *TimelineEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_wataridori_v1_wataridori_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimelineEntry.ProtoReflect.Descriptor instead.
+func (*TimelineEntry) Descriptor() ([]byte, []int) {
+	return file_wataridori_v1_wataridori_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *TimelineEntry) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+func (x *TimelineEntry) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
+func (x *TimelineEntry) GetRevision() string {
+	if x != nil {
+		return x.Revision
+	}
+	return ""
+}
+
+func (x *TimelineEntry) GetImage() string {
+	if x != nil {
+		return x.Image
+	}
+	return ""
+}
+
+func (x *TimelineEntry) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *TimelineEntry) GetCreateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateTime
+	}
+	return nil
+}
+
+func (x *TimelineEntry) GetReady() bool {
+	if x != nil {
+		return x.Ready
+	}
+	return false
+}
+
+func (x *TimelineEntry) GetTrafficPercent() int32 {
+	if x != nil {
+		return x.TrafficPercent
+	}
+	return 0
+}
+
+func (x *TimelineEntry) GetCurrent() bool {
+	if x != nil {
+		return x.Current
+	}
+	return false
+}
+
+func (x *TimelineEntry) GetDesired() bool {
+	if x != nil {
+		return x.Desired
+	}
+	return false
+}
+
+func (x *TimelineEntry) GetConsoleUrl() string {
+	if x != nil {
+		return x.ConsoleUrl
+	}
+	return ""
+}
+
+func (x *TimelineEntry) GetRunName() string {
+	if x != nil {
+		return x.RunName
+	}
+	return ""
+}
+
 var File_wataridori_v1_wataridori_proto protoreflect.FileDescriptor
 
 const file_wataridori_v1_wataridori_proto_rawDesc = "" +
@@ -1973,7 +2275,7 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x03env\x18\x01 \x01(\tR\x03env\"`\n" +
 	"\x0eStatusResponse\x128\n" +
 	"\bservices\x18\x01 \x03(\v2\x1c.wataridori.v1.ServiceStatusR\bservices\x12\x14\n" +
-	"\x05drift\x18\x02 \x01(\bR\x05drift\"\xb2\x03\n" +
+	"\x05drift\x18\x02 \x01(\bR\x05drift\"\xcd\x03\n" +
 	"\rServiceStatus\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\x12\x18\n" +
 	"\aservice\x18\x02 \x01(\tR\aservice\x12#\n" +
@@ -1989,11 +2291,12 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x0ftraffic_percent\x18\v \x01(\x05R\x0etrafficPercent\x12\x10\n" +
 	"\x03url\x18\f \x01(\tR\x03url\x12\x1f\n" +
 	"\vconsole_url\x18\r \x01(\tR\n" +
-	"consoleUrl\"$\n" +
+	"consoleUrl\x12\x19\n" +
+	"\brun_name\x18\x0e \x01(\tR\arunName\"$\n" +
 	"\x10InventoryRequest\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\"G\n" +
 	"\x11InventoryResponse\x122\n" +
-	"\x05items\x18\x01 \x03(\v2\x1c.wataridori.v1.InventoryItemR\x05items\"\x83\x04\n" +
+	"\x05items\x18\x01 \x03(\v2\x1c.wataridori.v1.InventoryItemR\x05items\"\xae\x04\n" +
 	"\rInventoryItem\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\x12\x18\n" +
 	"\aproject\x18\x02 \x01(\tR\aproject\x12\x16\n" +
@@ -2012,23 +2315,27 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x03url\x18\x0e \x01(\tR\x03url\x12\x1f\n" +
 	"\vconsole_url\x18\x0f \x01(\tR\n" +
 	"consoleUrl\x123\n" +
-	"\x05state\x18\x10 \x01(\x0e2\x1d.wataridori.v1.InventoryStateR\x05state\"|\n" +
+	"\x05state\x18\x10 \x01(\x0e2\x1d.wataridori.v1.InventoryStateR\x05state\x12)\n" +
+	"\x10manifest_service\x18\x11 \x01(\tR\x0fmanifestService\"\x92\x01\n" +
 	"\fApplyRequest\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\x12\x18\n" +
 	"\aservice\x18\x02 \x01(\tR\aservice\x12\x17\n" +
 	"\adry_run\x18\x03 \x01(\bR\x06dryRun\x12'\n" +
-	"\x0ftimeout_seconds\x18\x04 \x01(\x05R\x0etimeoutSeconds\"y\n" +
+	"\x0ftimeout_seconds\x18\x04 \x01(\x05R\x0etimeoutSeconds\x12\x14\n" +
+	"\x05force\x18\x05 \x01(\bR\x05force\"y\n" +
 	"\rApplyResponse\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\x12\x17\n" +
 	"\adry_run\x18\x02 \x01(\bR\x06dryRun\x12=\n" +
-	"\bservices\x18\x03 \x03(\v2!.wataridori.v1.ApplyServiceResultR\bservices\"\xbd\x01\n" +
+	"\bservices\x18\x03 \x03(\v2!.wataridori.v1.ApplyServiceResultR\bservices\"\xf6\x01\n" +
 	"\x12ApplyServiceResult\x12\x18\n" +
 	"\aservice\x18\x01 \x01(\tR\aservice\x12#\n" +
 	"\rdesired_image\x18\x02 \x01(\tR\fdesiredImage\x12!\n" +
 	"\factual_image\x18\x03 \x01(\tR\vactualImage\x12\x1a\n" +
 	"\brevision\x18\x04 \x01(\tR\brevision\x12\x10\n" +
 	"\x03url\x18\x05 \x01(\tR\x03url\x12\x17\n" +
-	"\ain_sync\x18\x06 \x01(\bR\x06inSync\"R\n" +
+	"\ain_sync\x18\x06 \x01(\bR\x06inSync\x12\x19\n" +
+	"\brun_name\x18\a \x01(\tR\arunName\x12\x1c\n" +
+	"\tunmanaged\x18\b \x03(\tR\tunmanaged\"R\n" +
 	"\x12PlanPromoteRequest\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x02 \x01(\tR\x02to\x12\x18\n" +
@@ -2067,13 +2374,14 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\brevision\x18\x03 \x01(\tR\brevision\"^\n" +
 	"\x17ExecuteRollbackResponse\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\x121\n" +
-	"\x05items\x18\x02 \x03(\v2\x1b.wataridori.v1.RollbackItemR\x05items\"\xc4\x01\n" +
+	"\x05items\x18\x02 \x03(\v2\x1b.wataridori.v1.RollbackItemR\x05items\"\xdf\x01\n" +
 	"\fRollbackItem\x12\x18\n" +
 	"\aservice\x18\x01 \x01(\tR\aservice\x12)\n" +
 	"\x10current_revision\x18\x02 \x01(\tR\x0fcurrentRevision\x12#\n" +
 	"\rcurrent_image\x18\x03 \x01(\tR\fcurrentImage\x12'\n" +
 	"\x0ftarget_revision\x18\x04 \x01(\tR\x0etargetRevision\x12!\n" +
-	"\ftarget_image\x18\x05 \x01(\tR\vtargetImage\"8\n" +
+	"\ftarget_image\x18\x05 \x01(\tR\vtargetImage\x12\x19\n" +
+	"\brun_name\x18\x06 \x01(\tR\arunName\"8\n" +
 	"\x0eHistoryRequest\x12\x10\n" +
 	"\x03env\x18\x01 \x01(\tR\x03env\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\"H\n" +
@@ -2090,7 +2398,29 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x06detail\x18\b \x03(\v2'.wataridori.v1.HistoryEntry.DetailEntryR\x06detail\x1a9\n" +
 	"\vDetailEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*r\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"S\n" +
+	"\x0fTimelineRequest\x12\x10\n" +
+	"\x03env\x18\x01 \x01(\tR\x03env\x12\x18\n" +
+	"\aservice\x18\x02 \x01(\tR\aservice\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"J\n" +
+	"\x10TimelineResponse\x126\n" +
+	"\aentries\x18\x01 \x03(\v2\x1c.wataridori.v1.TimelineEntryR\aentries\"\xf1\x02\n" +
+	"\rTimelineEntry\x12\x10\n" +
+	"\x03env\x18\x01 \x01(\tR\x03env\x12\x18\n" +
+	"\aservice\x18\x02 \x01(\tR\aservice\x12\x1a\n" +
+	"\brevision\x18\x03 \x01(\tR\brevision\x12\x14\n" +
+	"\x05image\x18\x04 \x01(\tR\x05image\x12\x16\n" +
+	"\x06digest\x18\x05 \x01(\tR\x06digest\x12;\n" +
+	"\vcreate_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createTime\x12\x14\n" +
+	"\x05ready\x18\a \x01(\bR\x05ready\x12'\n" +
+	"\x0ftraffic_percent\x18\b \x01(\x05R\x0etrafficPercent\x12\x18\n" +
+	"\acurrent\x18\t \x01(\bR\acurrent\x12\x18\n" +
+	"\adesired\x18\n" +
+	" \x01(\bR\adesired\x12\x1f\n" +
+	"\vconsole_url\x18\v \x01(\tR\n" +
+	"consoleUrl\x12\x19\n" +
+	"\brun_name\x18\f \x01(\tR\arunName*r\n" +
 	"\tSyncState\x12\x1a\n" +
 	"\x16SYNC_STATE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12SYNC_STATE_IN_SYNC\x10\x01\x12\x14\n" +
@@ -2110,7 +2440,7 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x06Policy\x12\x16\n" +
 	"\x12POLICY_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vPOLICY_AUTO\x10\x01\x12\x11\n" +
-	"\rPOLICY_MANUAL\x10\x022\x9f\x06\n" +
+	"\rPOLICY_MANUAL\x10\x022\xee\x06\n" +
 	"\x11DeploymentService\x12e\n" +
 	"\x10ListEnvironments\x12&.wataridori.v1.ListEnvironmentsRequest\x1a'.wataridori.v1.ListEnvironmentsResponse\"\x00\x12G\n" +
 	"\x06Status\x12\x1c.wataridori.v1.StatusRequest\x1a\x1d.wataridori.v1.StatusResponse\"\x00\x12P\n" +
@@ -2120,7 +2450,8 @@ const file_wataridori_v1_wataridori_proto_rawDesc = "" +
 	"\x0eExecutePromote\x12$.wataridori.v1.ExecutePromoteRequest\x1a%.wataridori.v1.ExecutePromoteResponse\"\x00\x12Y\n" +
 	"\fPlanRollback\x12\".wataridori.v1.PlanRollbackRequest\x1a#.wataridori.v1.PlanRollbackResponse\"\x00\x12b\n" +
 	"\x0fExecuteRollback\x12%.wataridori.v1.ExecuteRollbackRequest\x1a&.wataridori.v1.ExecuteRollbackResponse\"\x00\x12J\n" +
-	"\aHistory\x12\x1d.wataridori.v1.HistoryRequest\x1a\x1e.wataridori.v1.HistoryResponse\"\x00B\xb8\x01\n" +
+	"\aHistory\x12\x1d.wataridori.v1.HistoryRequest\x1a\x1e.wataridori.v1.HistoryResponse\"\x00\x12M\n" +
+	"\bTimeline\x12\x1e.wataridori.v1.TimelineRequest\x1a\x1f.wataridori.v1.TimelineResponse\"\x00B\xb8\x01\n" +
 	"\x11com.wataridori.v1B\x0fWataridoriProtoP\x01Z=github.com/Retr0413/wataridori/gen/wataridori/v1;wataridoriv1\xa2\x02\x03WXX\xaa\x02\rWataridori.V1\xca\x02\rWataridori\\V1\xe2\x02\x19Wataridori\\V1\\GPBMetadata\xea\x02\x0eWataridori::V1b\x06proto3"
 
 var (
@@ -2136,7 +2467,7 @@ func file_wataridori_v1_wataridori_proto_rawDescGZIP() []byte {
 }
 
 var file_wataridori_v1_wataridori_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_wataridori_v1_wataridori_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_wataridori_v1_wataridori_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_wataridori_v1_wataridori_proto_goTypes = []any{
 	(SyncState)(0),                   // 0: wataridori.v1.SyncState
 	(InventoryState)(0),              // 1: wataridori.v1.InventoryState
@@ -2167,8 +2498,11 @@ var file_wataridori_v1_wataridori_proto_goTypes = []any{
 	(*HistoryRequest)(nil),           // 26: wataridori.v1.HistoryRequest
 	(*HistoryResponse)(nil),          // 27: wataridori.v1.HistoryResponse
 	(*HistoryEntry)(nil),             // 28: wataridori.v1.HistoryEntry
-	nil,                              // 29: wataridori.v1.HistoryEntry.DetailEntry
-	(*timestamppb.Timestamp)(nil),    // 30: google.protobuf.Timestamp
+	(*TimelineRequest)(nil),          // 29: wataridori.v1.TimelineRequest
+	(*TimelineResponse)(nil),         // 30: wataridori.v1.TimelineResponse
+	(*TimelineEntry)(nil),            // 31: wataridori.v1.TimelineEntry
+	nil,                              // 32: wataridori.v1.HistoryEntry.DetailEntry
+	(*timestamppb.Timestamp)(nil),    // 33: google.protobuf.Timestamp
 }
 var file_wataridori_v1_wataridori_proto_depIdxs = []int32{
 	6,  // 0: wataridori.v1.ListEnvironmentsResponse.environments:type_name -> wataridori.v1.Environment
@@ -2183,32 +2517,36 @@ var file_wataridori_v1_wataridori_proto_depIdxs = []int32{
 	25, // 9: wataridori.v1.PlanRollbackResponse.items:type_name -> wataridori.v1.RollbackItem
 	25, // 10: wataridori.v1.ExecuteRollbackResponse.items:type_name -> wataridori.v1.RollbackItem
 	28, // 11: wataridori.v1.HistoryResponse.entries:type_name -> wataridori.v1.HistoryEntry
-	30, // 12: wataridori.v1.HistoryEntry.time:type_name -> google.protobuf.Timestamp
+	33, // 12: wataridori.v1.HistoryEntry.time:type_name -> google.protobuf.Timestamp
 	2,  // 13: wataridori.v1.HistoryEntry.action:type_name -> wataridori.v1.Action
-	29, // 14: wataridori.v1.HistoryEntry.detail:type_name -> wataridori.v1.HistoryEntry.DetailEntry
-	4,  // 15: wataridori.v1.DeploymentService.ListEnvironments:input_type -> wataridori.v1.ListEnvironmentsRequest
-	7,  // 16: wataridori.v1.DeploymentService.Status:input_type -> wataridori.v1.StatusRequest
-	10, // 17: wataridori.v1.DeploymentService.Inventory:input_type -> wataridori.v1.InventoryRequest
-	13, // 18: wataridori.v1.DeploymentService.Apply:input_type -> wataridori.v1.ApplyRequest
-	16, // 19: wataridori.v1.DeploymentService.PlanPromote:input_type -> wataridori.v1.PlanPromoteRequest
-	18, // 20: wataridori.v1.DeploymentService.ExecutePromote:input_type -> wataridori.v1.ExecutePromoteRequest
-	21, // 21: wataridori.v1.DeploymentService.PlanRollback:input_type -> wataridori.v1.PlanRollbackRequest
-	23, // 22: wataridori.v1.DeploymentService.ExecuteRollback:input_type -> wataridori.v1.ExecuteRollbackRequest
-	26, // 23: wataridori.v1.DeploymentService.History:input_type -> wataridori.v1.HistoryRequest
-	5,  // 24: wataridori.v1.DeploymentService.ListEnvironments:output_type -> wataridori.v1.ListEnvironmentsResponse
-	8,  // 25: wataridori.v1.DeploymentService.Status:output_type -> wataridori.v1.StatusResponse
-	11, // 26: wataridori.v1.DeploymentService.Inventory:output_type -> wataridori.v1.InventoryResponse
-	14, // 27: wataridori.v1.DeploymentService.Apply:output_type -> wataridori.v1.ApplyResponse
-	17, // 28: wataridori.v1.DeploymentService.PlanPromote:output_type -> wataridori.v1.PlanPromoteResponse
-	19, // 29: wataridori.v1.DeploymentService.ExecutePromote:output_type -> wataridori.v1.ExecutePromoteResponse
-	22, // 30: wataridori.v1.DeploymentService.PlanRollback:output_type -> wataridori.v1.PlanRollbackResponse
-	24, // 31: wataridori.v1.DeploymentService.ExecuteRollback:output_type -> wataridori.v1.ExecuteRollbackResponse
-	27, // 32: wataridori.v1.DeploymentService.History:output_type -> wataridori.v1.HistoryResponse
-	24, // [24:33] is the sub-list for method output_type
-	15, // [15:24] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	32, // 14: wataridori.v1.HistoryEntry.detail:type_name -> wataridori.v1.HistoryEntry.DetailEntry
+	31, // 15: wataridori.v1.TimelineResponse.entries:type_name -> wataridori.v1.TimelineEntry
+	33, // 16: wataridori.v1.TimelineEntry.create_time:type_name -> google.protobuf.Timestamp
+	4,  // 17: wataridori.v1.DeploymentService.ListEnvironments:input_type -> wataridori.v1.ListEnvironmentsRequest
+	7,  // 18: wataridori.v1.DeploymentService.Status:input_type -> wataridori.v1.StatusRequest
+	10, // 19: wataridori.v1.DeploymentService.Inventory:input_type -> wataridori.v1.InventoryRequest
+	13, // 20: wataridori.v1.DeploymentService.Apply:input_type -> wataridori.v1.ApplyRequest
+	16, // 21: wataridori.v1.DeploymentService.PlanPromote:input_type -> wataridori.v1.PlanPromoteRequest
+	18, // 22: wataridori.v1.DeploymentService.ExecutePromote:input_type -> wataridori.v1.ExecutePromoteRequest
+	21, // 23: wataridori.v1.DeploymentService.PlanRollback:input_type -> wataridori.v1.PlanRollbackRequest
+	23, // 24: wataridori.v1.DeploymentService.ExecuteRollback:input_type -> wataridori.v1.ExecuteRollbackRequest
+	26, // 25: wataridori.v1.DeploymentService.History:input_type -> wataridori.v1.HistoryRequest
+	29, // 26: wataridori.v1.DeploymentService.Timeline:input_type -> wataridori.v1.TimelineRequest
+	5,  // 27: wataridori.v1.DeploymentService.ListEnvironments:output_type -> wataridori.v1.ListEnvironmentsResponse
+	8,  // 28: wataridori.v1.DeploymentService.Status:output_type -> wataridori.v1.StatusResponse
+	11, // 29: wataridori.v1.DeploymentService.Inventory:output_type -> wataridori.v1.InventoryResponse
+	14, // 30: wataridori.v1.DeploymentService.Apply:output_type -> wataridori.v1.ApplyResponse
+	17, // 31: wataridori.v1.DeploymentService.PlanPromote:output_type -> wataridori.v1.PlanPromoteResponse
+	19, // 32: wataridori.v1.DeploymentService.ExecutePromote:output_type -> wataridori.v1.ExecutePromoteResponse
+	22, // 33: wataridori.v1.DeploymentService.PlanRollback:output_type -> wataridori.v1.PlanRollbackResponse
+	24, // 34: wataridori.v1.DeploymentService.ExecuteRollback:output_type -> wataridori.v1.ExecuteRollbackResponse
+	27, // 35: wataridori.v1.DeploymentService.History:output_type -> wataridori.v1.HistoryResponse
+	30, // 36: wataridori.v1.DeploymentService.Timeline:output_type -> wataridori.v1.TimelineResponse
+	27, // [27:37] is the sub-list for method output_type
+	17, // [17:27] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_wataridori_v1_wataridori_proto_init() }
@@ -2222,7 +2560,7 @@ func file_wataridori_v1_wataridori_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wataridori_v1_wataridori_proto_rawDesc), len(file_wataridori_v1_wataridori_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   26,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

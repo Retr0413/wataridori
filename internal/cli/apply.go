@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ func newApplyCmd(g *globalFlags) *cobra.Command {
 		env     string
 		service string
 		dryRun  bool
+		force   bool
 		timeout time.Duration
 	)
 	cmd := &cobra.Command{
@@ -27,7 +29,7 @@ func newApplyCmd(g *globalFlags) *cobra.Command {
 			}
 
 			res, err := e.Apply(cmd.Context(), core.ApplyRequest{
-				Env: env, Service: service, DryRun: dryRun, Timeout: timeout,
+				Env: env, Service: service, DryRun: dryRun, Force: force, Timeout: timeout,
 			})
 			if err != nil {
 				return err
@@ -51,12 +53,20 @@ func newApplyCmd(g *globalFlags) *cobra.Command {
 				rows = append(rows, []string{s.Service, shortImage(s.DesiredImage), s.Revision, status})
 			}
 			table(cmd.OutOrStdout(), []string{"SERVICE", "IMAGE", "REVISION", "STATUS"}, rows)
+			for _, s := range res.Services {
+				if len(s.Unmanaged) > 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(),
+						"warning: %s has settings the manifest cannot express; applying removes them: %s\n",
+						s.Service, strings.Join(s.Unmanaged, ", "))
+				}
+			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&env, "env", "", "target environment (required)")
 	cmd.Flags().StringVar(&service, "service", "", "deploy only this service")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the diff without deploying")
+	cmd.Flags().BoolVar(&force, "force", false, "apply even when it removes settings the manifest cannot express")
 	cmd.Flags().DurationVar(&timeout, "timeout", core.DefaultApplyTimeout, "wait for the revision to become ready")
 	_ = cmd.MarkFlagRequired("env")
 	return cmd

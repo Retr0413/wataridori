@@ -45,7 +45,15 @@ type ImageCopy struct {
 
 // Service is one per-environment service manifest (one file = one service).
 type Service struct {
-	Name           string    `yaml:"name"`
+	// Name is the service's identity across environments: promotion matches
+	// source to target by it, and the UI groups a service's environments into
+	// one row by it. It defaults to being the Cloud Run service name too.
+	Name string `yaml:"name"`
+	// CloudRunName overrides the Cloud Run service name for this environment.
+	// Deployments that encode the environment in the service name
+	// (my-api-dev / my-api-prod, often because both live in one project)
+	// would otherwise have no name in common to promote along.
+	CloudRunName   string    `yaml:"cloudRunName,omitempty"`
 	Image          string    `yaml:"image"`
 	Env            []EnvVar  `yaml:"env,omitempty"`
 	Resources      Resources `yaml:"resources,omitempty"`
@@ -59,10 +67,40 @@ type Service struct {
 	File string `yaml:"-"`
 }
 
-// EnvVar is a literal environment variable.
+// RunName is the Cloud Run service name to read and write: CloudRunName when
+// set, otherwise Name. Every Cloud Run API call goes through this; Name alone
+// is the manifest-side identity.
+func (s *Service) RunName() string {
+	if s.CloudRunName != "" {
+		return s.CloudRunName
+	}
+	return s.Name
+}
+
+// EnvVar is one environment variable: either a literal Value or a reference
+// to a Secret Manager secret, never both.
 type EnvVar struct {
 	Name  string `yaml:"name"`
-	Value string `yaml:"value"`
+	Value string `yaml:"value,omitempty"`
+	// Secret is a Secret Manager secret name — "my-secret" in the same
+	// project, or "projects/{project}/secrets/{name}" elsewhere. Apply
+	// replaces the service wholesale, so a secret-backed variable that the
+	// manifest cannot express would be dropped from the running service.
+	Secret string `yaml:"secret,omitempty"`
+	// Version is the secret version; empty means SecretVersionLatest.
+	Version string `yaml:"version,omitempty"`
+}
+
+// SecretVersionLatest is the default secret version — the same default the
+// Cloud Run console applies.
+const SecretVersionLatest = "latest"
+
+// SecretVersion returns the version to bind, defaulting to latest.
+func (e EnvVar) SecretVersion() string {
+	if e.Version != "" {
+		return e.Version
+	}
+	return SecretVersionLatest
 }
 
 // Resources are per-instance limits.

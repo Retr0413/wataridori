@@ -27,7 +27,9 @@ type RollbackPlan struct {
 }
 
 type RollbackItem struct {
-	Service         string `json:"service"`
+	Service string `json:"service"`
+	// RunName is the Cloud Run service whose traffic moves.
+	RunName         string `json:"runName,omitempty"`
 	CurrentRevision string `json:"currentRevision"`
 	CurrentImage    string `json:"currentImage"`
 	TargetRevision  string `json:"targetRevision"`
@@ -56,7 +58,7 @@ func (e *Engine) PlanRollback(ctx context.Context, req RollbackRequest) (*Rollba
 
 	plan := &RollbackPlan{Env: env.Name, env: env}
 	for _, svc := range services {
-		revisions, err := e.CloudRun.ListRevisions(ctx, env, svc.Name)
+		revisions, err := e.CloudRun.ListRevisions(ctx, env, svc.RunName())
 		if err != nil {
 			return nil, err
 		}
@@ -64,6 +66,7 @@ func (e *Engine) PlanRollback(ctx context.Context, req RollbackRequest) (*Rollba
 		if err != nil {
 			return nil, err
 		}
+		item.RunName = svc.RunName()
 		plan.Items = append(plan.Items, *item)
 	}
 	return plan, nil
@@ -115,7 +118,7 @@ func rollbackTarget(service string, revisions []cloudrun.Revision, explicit stri
 
 func (e *Engine) ExecuteRollback(ctx context.Context, plan *RollbackPlan) (*RollbackResult, error) {
 	for _, item := range plan.Items {
-		if err := e.CloudRun.SetTraffic(ctx, plan.env, item.Service, item.TargetRevision); err != nil {
+		if err := e.CloudRun.SetTraffic(ctx, plan.env, item.RunName, item.TargetRevision); err != nil {
 			return nil, err
 		}
 		digest := ""

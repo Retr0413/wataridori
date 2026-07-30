@@ -77,8 +77,11 @@ func (fake) Status(context.Context, core.StatusRequest) (*core.StatusResult, err
 
 func (fake) Inventory(_ context.Context, req core.InventoryRequest) (*core.InventoryResult, error) {
 	all := []core.InventoryItem{
-		{Env: "dev", Project: "acme-dev", Region: "asia-northeast1", Service: "checkout-api", Managed: true,
-			DesiredDigest: digestA, ActualDigest: digestA, Revision: "checkout-api-00007", TrafficPct: 100,
+		// checkout-api carries a per-environment Cloud Run name, so the UI
+		// path for cloudRunName is exercised alongside the plain case.
+		{Env: "dev", Project: "acme-dev", Region: "asia-northeast1", Service: "checkout-api-dev", Managed: true,
+			ManifestService: "checkout-api",
+			DesiredDigest:   digestA, ActualDigest: digestA, Revision: "checkout-api-00007", TrafficPct: 100,
 			Ready: true, State: core.InventoryInSync, ConsoleURL: console},
 		{Env: "dev", Project: "acme-dev", Region: "asia-northeast1", Service: "legacy-cron", Managed: false,
 			ActualDigest: digestC, Revision: "legacy-cron-00002", TrafficPct: 100, Ready: true,
@@ -157,6 +160,46 @@ func (fake) ListHistory(_ context.Context, req core.HistoryRequest) (*core.Histo
 		}
 	}
 	return &core.HistoryResult{Entries: out}, nil
+}
+
+// Timeline mirrors the Status scenario one layer down: checkout-api moved
+// through prod after dev, web-frontend is a digest ahead in dev, and worker's
+// newest dev revision is not the one Git points at (the drift), while prod
+// has no worker revisions at all.
+func (fake) Timeline(_ context.Context, req core.TimelineRequest) (*core.TimelineResult, error) {
+	all := []core.TimelineEntry{
+		{Env: "dev", Service: "worker", Revision: "worker-00003", Digest: digestC,
+			CreateTime: fixedTime.Add(-90 * time.Minute), Ready: true, TrafficPct: 100,
+			Current: true, ConsoleURL: console},
+		{Env: "dev", Service: "web-frontend", Revision: "web-frontend-00012", Digest: digestB,
+			CreateTime: fixedTime.Add(-3 * time.Hour), Ready: true, TrafficPct: 100,
+			Current: true, Desired: true, ConsoleURL: console},
+		{Env: "prod", Service: "checkout-api", Revision: "checkout-api-00004", Digest: digestA,
+			CreateTime: fixedTime.Add(-5 * time.Hour), Ready: true, TrafficPct: 100,
+			Current: true, Desired: true, ConsoleURL: console},
+		{Env: "dev", Service: "checkout-api", Revision: "checkout-api-00007", Digest: digestA,
+			CreateTime: fixedTime.Add(-9 * time.Hour), Ready: true, TrafficPct: 100,
+			Current: true, Desired: true, ConsoleURL: console},
+		{Env: "dev", Service: "worker", Revision: "worker-00002", Digest: digestD,
+			CreateTime: fixedTime.Add(-30 * time.Hour), Ready: true,
+			Desired: true, ConsoleURL: console},
+		{Env: "prod", Service: "web-frontend", Revision: "web-frontend-00009", Digest: digestC,
+			CreateTime: fixedTime.Add(-52 * time.Hour), Ready: true, TrafficPct: 100,
+			Current: true, Desired: true, ConsoleURL: console},
+		{Env: "dev", Service: "checkout-api", Revision: "checkout-api-00006", Digest: digestB,
+			CreateTime: fixedTime.Add(-73 * time.Hour), Ready: true, ConsoleURL: console},
+	}
+	var out []core.TimelineEntry
+	for _, e := range all {
+		if req.Env != "" && e.Env != req.Env {
+			continue
+		}
+		if req.Service != "" && e.Service != req.Service {
+			continue
+		}
+		out = append(out, e)
+	}
+	return &core.TimelineResult{Entries: out}, nil
 }
 
 func main() {

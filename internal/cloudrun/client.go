@@ -109,6 +109,7 @@ func (c *Client) Apply(ctx context.Context, env *manifest.Environment, svc *mani
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	name := svc.RunName()
 	desired := BuildService(env, svc)
 	existing, err := c.services.GetService(ctx, &runpb.GetServiceRequest{Name: desired.Name})
 
@@ -116,28 +117,28 @@ func (c *Client) Apply(ctx context.Context, env *manifest.Environment, svc *mani
 	case isNotFound(err):
 		op, err := c.services.CreateService(ctx, &runpb.CreateServiceRequest{
 			Parent:    ParentName(env),
-			ServiceId: svc.Name,
+			ServiceId: name,
 			Service:   desired,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("creating service %s: %w", svc.Name, err)
+			return nil, fmt.Errorf("creating service %s: %w", name, err)
 		}
 		if _, err := op.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("service %s failed to become ready: %w", svc.Name, err)
+			return nil, fmt.Errorf("service %s failed to become ready: %w", name, err)
 		}
 	case err != nil:
-		return nil, fmt.Errorf("getting service %s: %w", svc.Name, err)
+		return nil, fmt.Errorf("getting service %s: %w", name, err)
 	default:
 		_ = existing // full replacement: the manifest is the source of truth
 		op, err := c.services.UpdateService(ctx, &runpb.UpdateServiceRequest{Service: desired})
 		if err != nil {
-			return nil, fmt.Errorf("updating service %s: %w", svc.Name, err)
+			return nil, fmt.Errorf("updating service %s: %w", name, err)
 		}
 		if _, err := op.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("service %s failed to become ready: %w", svc.Name, err)
+			return nil, fmt.Errorf("service %s failed to become ready: %w", name, err)
 		}
 	}
-	return c.GetService(ctx, env, svc.Name)
+	return c.GetService(ctx, env, name)
 }
 
 // ListRevisions returns the revisions of a service, newest first.

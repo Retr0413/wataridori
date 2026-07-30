@@ -25,8 +25,12 @@ const (
 // ServiceStatus carries everything the CLI table shows today plus the
 // fields the Phase 2 UI needs (traffic, ready reason, deep links).
 type ServiceStatus struct {
-	Env           string    `json:"env"`
-	Service       string    `json:"service"`
+	Env string `json:"env"`
+	// Service is the manifest identity, shared across environments.
+	Service string `json:"service"`
+	// RunName is the Cloud Run service behind it, which may differ per
+	// environment (manifest.Service.CloudRunName).
+	RunName       string    `json:"runName,omitempty"`
 	DesiredImage  string    `json:"desiredImage"`
 	DesiredDigest string    `json:"desiredDigest"`
 	ActualImage   string    `json:"actualImage,omitempty"`
@@ -75,11 +79,12 @@ func (e *Engine) Status(ctx context.Context, req StatusRequest) (*StatusResult, 
 			st := ServiceStatus{
 				Env:           env.Name,
 				Service:       svc.Name,
+				RunName:       svc.RunName(),
 				DesiredImage:  svc.Image,
 				DesiredDigest: desiredDigest,
 			}
 
-			actual, err := e.CloudRun.Get(ctx, env, svc.Name)
+			actual, err := e.CloudRun.Get(ctx, env, svc.RunName())
 			if err != nil {
 				return nil, err
 			}

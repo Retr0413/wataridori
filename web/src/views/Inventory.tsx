@@ -74,7 +74,14 @@ export function Inventory() {
             {items.map((item) => (
               <tr key={`${item.env}/${item.service}`}>
                 <td className="nowrap">{item.env}</td>
-                <td className="nowrap">{item.service}</td>
+                <td className="nowrap">
+                  {item.service}
+                  {/* The manifest identity, shown only when it differs, so a
+                      Cloud Run name like api-prod is traceable to its row. */}
+                  {item.manifestService && item.manifestService !== item.service && (
+                    <span className="muted"> · {item.manifestService}</span>
+                  )}
+                </td>
                 <td className="muted nowrap">{item.managed ? "managed" : "unmanaged"}</td>
                 <td className="mono">{shortDigest(item.desiredDigest) || "-"}</td>
                 <td className="mono">{shortDigest(item.actualDigest) || "-"}</td>

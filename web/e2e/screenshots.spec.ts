@@ -43,6 +43,14 @@ test.describe("screenshots", () => {
     await page.screenshot({ path: `${dir}/drawer.png` });
   });
 
+  test("timeline", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("tab", { name: "Timeline" }).click();
+    await expect(page.locator(".env-card").first()).toContainText("dev");
+    await park(page);
+    await page.screenshot({ path: `${dir}/timeline.png` });
+  });
+
   test("inventory", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("tab", { name: "Inventory" }).click();
