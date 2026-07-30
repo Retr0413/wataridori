@@ -42,6 +42,13 @@ service DeploymentService {
 
   // History lists recorded operations, newest first. §2.5.
   rpc History(HistoryRequest) returns (HistoryResponse) {}
+
+  // Timeline reconstructs the deployment history from Cloud Run revisions,
+  // newest first. History only knows what Wataridori itself did; Timeline
+  // reads the observed side, so deploys made by a CI pipeline or by hand
+  // appear too. That makes it the view that explains how two environments
+  // drifted apart.
+  rpc Timeline(TimelineRequest) returns (TimelineResponse) {}
 }
 
 // SyncState classifies one service's desired-vs-actual comparison.
@@ -118,6 +125,7 @@ message StatusResponse {
 // needs (traffic, ready reason, deep links).
 message ServiceStatus {
   string env = 1;
+  // service is the manifest identity, shared across environments.
   string service = 2;
   string desired_image = 3;
   string desired_digest = 4;
@@ -130,6 +138,9 @@ message ServiceStatus {
   int32 traffic_percent = 11;
   string url = 12;
   string console_url = 13;
+  // run_name is the Cloud Run service behind it, which may differ per
+  // environment (the manifest's cloudRunName).
+  string run_name = 14;
 }
 
 // --- Inventory ------------------------------------------------------------
@@ -160,6 +171,9 @@ message InventoryItem {
   string url = 14;
   string console_url = 15;
   InventoryState state = 16;
+  // manifest_service is the manifest identity when it differs from the Cloud
+  // Run service name in `service`.
+  string manifest_service = 17;
 }
 
 // --- Apply ----------------------------------------------------------------
@@ -171,6 +185,9 @@ message ApplyRequest {
   // timeout_seconds bounds the wait for a revision to become ready.
   // 0 means the server default (5 minutes).
   int32 timeout_seconds = 4;
+  // force applies even when the running service carries configuration the
+  // manifest cannot express, which the replacement would drop.
+  bool force = 5;
 }
 
 message ApplyResponse {
@@ -189,6 +206,10 @@ message ApplyServiceResult {
   string url = 5;
   // in_sync means desired == actual.
   bool in_sync = 6;
+  // run_name is the Cloud Run service actually written.
+  string run_name = 7;
+  // unmanaged lists settings on the running service this apply would drop.
+  repeated string unmanaged = 8;
 }
 
 // --- Promote --------------------------------------------------------------
@@ -261,6 +282,8 @@ message RollbackItem {
   string current_image = 3;
   string target_revision = 4;
   string target_image = 5;
+  // run_name is the Cloud Run service whose traffic moves.
+  string run_name = 6;
 }
 
 // --- History --------------------------------------------------------------
@@ -284,4 +307,39 @@ message HistoryEntry {
   string service = 6;
   string digest = 7;
   map<string, string> detail = 8;
+}
+
+// --- Timeline -------------------------------------------------------------
+
+message TimelineRequest {
+  string env = 1; // optional filter, empty means all environments
+  string service = 2; // optional filter
+  // limit bounds the revisions read per service. 0 means the server default.
+  int32 limit = 3;
+}
+
+message TimelineResponse {
+  // entries are merged across environments and sorted newest first, so two
+  // environments' deploys interleave on one axis.
+  repeated TimelineEntry entries = 1;
+}
+
+// TimelineEntry is one Cloud Run revision of one managed service.
+message TimelineEntry {
+  string env = 1;
+  string service = 2;
+  string revision = 3;
+  string image = 4;
+  string digest = 5;
+  google.protobuf.Timestamp create_time = 6;
+  bool ready = 7;
+  int32 traffic_percent = 8;
+  // current marks the revision serving the largest share of traffic.
+  bool current = 9;
+  // desired marks the revision whose digest the Git manifest points at. When
+  // current and desired sit on different rows, that gap is the drift.
+  bool desired = 10;
+  string console_url = 11;
+  // run_name is the Cloud Run service the revision belongs to.
+  string run_name = 12;
 }

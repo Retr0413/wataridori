@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Activity } from "./views/Activity";
 import { Inventory } from "./views/Inventory";
 import { Pipeline } from "./views/Pipeline";
+import { Timeline } from "./views/Timeline";
 
 const tabs = [
   { id: "pipeline", label: "Pipeline" },
+  { id: "timeline", label: "Timeline" },
   { id: "inventory", label: "Inventory" },
   { id: "activity", label: "Activity" },
 ] as const;
@@ -53,6 +55,7 @@ export function App() {
 
       <main className="layout">
         {tab === "pipeline" && <Pipeline />}
+        {tab === "timeline" && <Timeline />}
         {tab === "inventory" && <Inventory />}
         {tab === "activity" && <Activity />}
       </main>

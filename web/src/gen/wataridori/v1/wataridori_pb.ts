@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file wataridori/v1/wataridori.proto.
  */
 export const file_wataridori_v1_wataridori: GenFile = /*@__PURE__*/
-  fileDesc("Ch53YXRhcmlkb3JpL3YxL3dhdGFyaWRvcmkucHJvdG8SDXdhdGFyaWRvcmkudjEiGQoXTGlzdEVudmlyb25tZW50c1JlcXVlc3QiTAoYTGlzdEVudmlyb25tZW50c1Jlc3BvbnNlEjAKDGVudmlyb25tZW50cxgBIAMoCzIaLndhdGFyaWRvcmkudjEuRW52aXJvbm1lbnQioAEKC0Vudmlyb25tZW50EgwKBG5hbWUYASABKAkSJQoGcG9saWN5GAIgASgOMhUud2F0YXJpZG9yaS52MS5Qb2xpY3kSDgoGYnJhbmNoGAMgASgJEhQKDHByb21vdGVfZnJvbRgEIAEoCRIPCgdwcm9qZWN0GAUgASgJEg4KBnJlZ2lvbhgGIAEoCRIVCg1pbWFnZV9jb3B5X3RvGAcgASgJIhwKDVN0YXR1c1JlcXVlc3QSCwoDZW52GAEgASgJIk8KDlN0YXR1c1Jlc3BvbnNlEi4KCHNlcnZpY2VzGAEgAygLMhwud2F0YXJpZG9yaS52MS5TZXJ2aWNlU3RhdHVzEg0KBWRyaWZ0GAIgASgIIqUCCg1TZXJ2aWNlU3RhdHVzEgsKA2VudhgBIAEoCRIPCgdzZXJ2aWNlGAIgASgJEhUKDWRlc2lyZWRfaW1hZ2UYAyABKAkSFgoOZGVzaXJlZF9kaWdlc3QYBCABKAkSFAoMYWN0dWFsX2ltYWdlGAUgASgJEhUKDWFjdHVhbF9kaWdlc3QYBiABKAkSEAoIcmV2aXNpb24YByABKAkSJwoFc3RhdGUYCCABKA4yGC53YXRhcmlkb3JpLnYxLlN5bmNTdGF0ZRINCgVyZWFkeRgJIAEoCBIVCg1yZWFkeV9tZXNzYWdlGAogASgJEhcKD3RyYWZmaWNfcGVyY2VudBgLIAEoBRILCgN1cmwYDCABKAkSEwoLY29uc29sZV91cmwYDSABKAkiHwoQSW52ZW50b3J5UmVxdWVzdBILCgNlbnYYASABKAkiQAoRSW52ZW50b3J5UmVzcG9uc2USKwoFaXRlbXMYASADKAsyHC53YXRhcmlkb3JpLnYxLkludmVudG9yeUl0ZW0i3AIKDUludmVudG9yeUl0ZW0SCwoDZW52GAEgASgJEg8KB3Byb2plY3QYAiABKAkSDgoGcmVnaW9uGAMgASgJEg8KB3NlcnZpY2UYBCABKAkSDwoHbWFuYWdlZBgFIAEoCBIVCg1kZXNpcmVkX2ltYWdlGAYgASgJEhYKDmRlc2lyZWRfZGlnZXN0GAcgASgJEhQKDGFjdHVhbF9pbWFnZRgIIAEoCRIVCg1hY3R1YWxfZGlnZXN0GAkgASgJEhAKCHJldmlzaW9uGAogASgJEhcKD3RyYWZmaWNfcGVyY2VudBgLIAEoBRINCgVyZWFkeRgMIAEoCBIVCg1yZWFkeV9tZXNzYWdlGA0gASgJEgsKA3VybBgOIAEoCRITCgtjb25zb2xlX3VybBgPIAEoCRIsCgVzdGF0ZRgQIAEoDjIdLndhdGFyaWRvcmkudjEuSW52ZW50b3J5U3RhdGUiVgoMQXBwbHlSZXF1ZXN0EgsKA2VudhgBIAEoCRIPCgdzZXJ2aWNlGAIgASgJEg8KB2RyeV9ydW4YAyABKAgSFwoPdGltZW91dF9zZWNvbmRzGAQgASgFImIKDUFwcGx5UmVzcG9uc2USCwoDZW52GAEgASgJEg8KB2RyeV9ydW4YAiABKAgSMwoIc2VydmljZXMYAyADKAsyIS53YXRhcmlkb3JpLnYxLkFwcGx5U2VydmljZVJlc3VsdCKCAQoSQXBwbHlTZXJ2aWNlUmVzdWx0Eg8KB3NlcnZpY2UYASABKAkSFQoNZGVzaXJlZF9pbWFnZRgCIAEoCRIUCgxhY3R1YWxfaW1hZ2UYAyABKAkSEAoIcmV2aXNpb24YBCABKAkSCwoDdXJsGAUgASgJEg8KB2luX3N5bmMYBiABKAgiPwoSUGxhblByb21vdGVSZXF1ZXN0EgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSDwoHc2VydmljZRgDIAEoCSJaChNQbGFuUHJvbW90ZVJlc3BvbnNlEgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSKQoFaXRlbXMYAyADKAsyGi53YXRhcmlkb3JpLnYxLlByb21vdGVJdGVtIkIKFUV4ZWN1dGVQcm9tb3RlUmVxdWVzdBIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEg8KB3NlcnZpY2UYAyABKAkicAoWRXhlY3V0ZVByb21vdGVSZXNwb25zZRIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEhEKCWNvbW1pdF9pZBgDIAEoCRIpCgVpdGVtcxgEIAMoCzIaLndhdGFyaWRvcmkudjEuUHJvbW90ZUl0ZW0ibAoLUHJvbW90ZUl0ZW0SDwoHc2VydmljZRgBIAEoCRISCgpmcm9tX2ltYWdlGAIgASgJEhEKCW9sZF9pbWFnZRgDIAEoCRIRCgluZXdfaW1hZ2UYBCABKAkSEgoKbmVlZHNfY29weRgFIAEoCCJFChNQbGFuUm9sbGJhY2tSZXF1ZXN0EgsKA2VudhgBIAEoCRIPCgdzZXJ2aWNlGAIgASgJEhAKCHJldmlzaW9uGAMgASgJIk8KFFBsYW5Sb2xsYmFja1Jlc3BvbnNlEgsKA2VudhgBIAEoCRIqCgVpdGVtcxgCIAMoCzIbLndhdGFyaWRvcmkudjEuUm9sbGJhY2tJdGVtIkgKFkV4ZWN1dGVSb2xsYmFja1JlcXVlc3QSCwoDZW52GAEgASgJEg8KB3NlcnZpY2UYAiABKAkSEAoIcmV2aXNpb24YAyABKAkiUgoXRXhlY3V0ZVJvbGxiYWNrUmVzcG9uc2USCwoDZW52GAEgASgJEioKBWl0ZW1zGAIgAygLMhsud2F0YXJpZG9yaS52MS5Sb2xsYmFja0l0ZW0ifwoMUm9sbGJhY2tJdGVtEg8KB3NlcnZpY2UYASABKAkSGAoQY3VycmVudF9yZXZpc2lvbhgCIAEoCRIVCg1jdXJyZW50X2ltYWdlGAMgASgJEhcKD3RhcmdldF9yZXZpc2lvbhgEIAEoCRIUCgx0YXJnZXRfaW1hZ2UYBSABKAkiLAoOSGlzdG9yeVJlcXVlc3QSCwoDZW52GAEgASgJEg0KBWxpbWl0GAIgASgFIj8KD0hpc3RvcnlSZXNwb25zZRIsCgdlbnRyaWVzGAEgAygLMhsud2F0YXJpZG9yaS52MS5IaXN0b3J5RW50cnkikAIKDEhpc3RvcnlFbnRyeRIKCgJpZBgBIAEoAxIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgVhY3RvchgDIAEoCRIlCgZhY3Rpb24YBCABKA4yFS53YXRhcmlkb3JpLnYxLkFjdGlvbhILCgNlbnYYBSABKAkSDwoHc2VydmljZRgGIAEoCRIOCgZkaWdlc3QYByABKAkSNwoGZGV0YWlsGAggAygLMicud2F0YXJpZG9yaS52MS5IaXN0b3J5RW50cnkuRGV0YWlsRW50cnkaLQoLRGV0YWlsRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASpyCglTeW5jU3RhdGUSGgoWU1lOQ19TVEFURV9VTlNQRUNJRklFRBAAEhYKElNZTkNfU1RBVEVfSU5fU1lOQxABEhQKEFNZTkNfU1RBVEVfRFJJRlQQAhIbChdTWU5DX1NUQVRFX05PVF9ERVBMT1lFRBADKqoBCg5JbnZlbnRvcnlTdGF0ZRIfChtJTlZFTlRPUllfU1RBVEVfVU5TUEVDSUZJRUQQABIbChdJTlZFTlRPUllfU1RBVEVfSU5fU1lOQxABEhkKFUlOVkVOVE9SWV9TVEFURV9EUklGVBACEiAKHElOVkVOVE9SWV9TVEFURV9OT1RfREVQTE9ZRUQQAxIdChlJTlZFTlRPUllfU1RBVEVfVU5NQU5BR0VEEAQqWwoGQWN0aW9uEhYKEkFDVElPTl9VTlNQRUNJRklFRBAAEhAKDEFDVElPTl9BUFBMWRABEhIKDkFDVElPTl9QUk9NT1RFEAISEwoPQUNUSU9OX1JPTExCQUNLEAMqRAoGUG9saWN5EhYKElBPTElDWV9VTlNQRUNJRklFRBAAEg8KC1BPTElDWV9BVVRPEAESEQoNUE9MSUNZX01BTlVBTBACMp8GChFEZXBsb3ltZW50U2VydmljZRJlChBMaXN0RW52aXJvbm1lbnRzEiYud2F0YXJpZG9yaS52MS5MaXN0RW52aXJvbm1lbnRzUmVxdWVzdBonLndhdGFyaWRvcmkudjEuTGlzdEVudmlyb25tZW50c1Jlc3BvbnNlIgASRwoGU3RhdHVzEhwud2F0YXJpZG9yaS52MS5TdGF0dXNSZXF1ZXN0Gh0ud2F0YXJpZG9yaS52MS5TdGF0dXNSZXNwb25zZSIAElAKCUludmVudG9yeRIfLndhdGFyaWRvcmkudjEuSW52ZW50b3J5UmVxdWVzdBogLndhdGFyaWRvcmkudjEuSW52ZW50b3J5UmVzcG9uc2UiABJECgVBcHBseRIbLndhdGFyaWRvcmkudjEuQXBwbHlSZXF1ZXN0Ghwud2F0YXJpZG9yaS52MS5BcHBseVJlc3BvbnNlIgASVgoLUGxhblByb21vdGUSIS53YXRhcmlkb3JpLnYxLlBsYW5Qcm9tb3RlUmVxdWVzdBoiLndhdGFyaWRvcmkudjEuUGxhblByb21vdGVSZXNwb25zZSIAEl8KDkV4ZWN1dGVQcm9tb3RlEiQud2F0YXJpZG9yaS52MS5FeGVjdXRlUHJvbW90ZVJlcXVlc3QaJS53YXRhcmlkb3JpLnYxLkV4ZWN1dGVQcm9tb3RlUmVzcG9uc2UiABJZCgxQbGFuUm9sbGJhY2sSIi53YXRhcmlkb3JpLnYxLlBsYW5Sb2xsYmFja1JlcXVlc3QaIy53YXRhcmlkb3JpLnYxLlBsYW5Sb2xsYmFja1Jlc3BvbnNlIgASYgoPRXhlY3V0ZVJvbGxiYWNrEiUud2F0YXJpZG9yaS52MS5FeGVjdXRlUm9sbGJhY2tSZXF1ZXN0GiYud2F0YXJpZG9yaS52MS5FeGVjdXRlUm9sbGJhY2tSZXNwb25zZSIAEkoKB0hpc3RvcnkSHS53YXRhcmlkb3JpLnYxLkhpc3RvcnlSZXF1ZXN0Gh4ud2F0YXJpZG9yaS52MS5IaXN0b3J5UmVzcG9uc2UiAEK4AQoRY29tLndhdGFyaWRvcmkudjFCD1dhdGFyaWRvcmlQcm90b1ABWj1naXRodWIuY29tL1JldHIwNDEzL3dhdGFyaWRvcmkvZ2VuL3dhdGFyaWRvcmkvdjE7d2F0YXJpZG9yaXYxogIDV1hYqgINV2F0YXJpZG9yaS5WMcoCDVdhdGFyaWRvcmlcVjHiAhlXYXRhcmlkb3JpXFYxXEdQQk1ldGFkYXRh6gIOV2F0YXJpZG9yaTo6VjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("Ch53YXRhcmlkb3JpL3YxL3dhdGFyaWRvcmkucHJvdG8SDXdhdGFyaWRvcmkudjEiGQoXTGlzdEVudmlyb25tZW50c1JlcXVlc3QiTAoYTGlzdEVudmlyb25tZW50c1Jlc3BvbnNlEjAKDGVudmlyb25tZW50cxgBIAMoCzIaLndhdGFyaWRvcmkudjEuRW52aXJvbm1lbnQioAEKC0Vudmlyb25tZW50EgwKBG5hbWUYASABKAkSJQoGcG9saWN5GAIgASgOMhUud2F0YXJpZG9yaS52MS5Qb2xpY3kSDgoGYnJhbmNoGAMgASgJEhQKDHByb21vdGVfZnJvbRgEIAEoCRIPCgdwcm9qZWN0GAUgASgJEg4KBnJlZ2lvbhgGIAEoCRIVCg1pbWFnZV9jb3B5X3RvGAcgASgJIhwKDVN0YXR1c1JlcXVlc3QSCwoDZW52GAEgASgJIk8KDlN0YXR1c1Jlc3BvbnNlEi4KCHNlcnZpY2VzGAEgAygLMhwud2F0YXJpZG9yaS52MS5TZXJ2aWNlU3RhdHVzEg0KBWRyaWZ0GAIgASgIIrcCCg1TZXJ2aWNlU3RhdHVzEgsKA2VudhgBIAEoCRIPCgdzZXJ2aWNlGAIgASgJEhUKDWRlc2lyZWRfaW1hZ2UYAyABKAkSFgoOZGVzaXJlZF9kaWdlc3QYBCABKAkSFAoMYWN0dWFsX2ltYWdlGAUgASgJEhUKDWFjdHVhbF9kaWdlc3QYBiABKAkSEAoIcmV2aXNpb24YByABKAkSJwoFc3RhdGUYCCABKA4yGC53YXRhcmlkb3JpLnYxLlN5bmNTdGF0ZRINCgVyZWFkeRgJIAEoCBIVCg1yZWFkeV9tZXNzYWdlGAogASgJEhcKD3RyYWZmaWNfcGVyY2VudBgLIAEoBRILCgN1cmwYDCABKAkSEwoLY29uc29sZV91cmwYDSABKAkSEAoIcnVuX25hbWUYDiABKAkiHwoQSW52ZW50b3J5UmVxdWVzdBILCgNlbnYYASABKAkiQAoRSW52ZW50b3J5UmVzcG9uc2USKwoFaXRlbXMYASADKAsyHC53YXRhcmlkb3JpLnYxLkludmVudG9yeUl0ZW0i9gIKDUludmVudG9yeUl0ZW0SCwoDZW52GAEgASgJEg8KB3Byb2plY3QYAiABKAkSDgoGcmVnaW9uGAMgASgJEg8KB3NlcnZpY2UYBCABKAkSDwoHbWFuYWdlZBgFIAEoCBIVCg1kZXNpcmVkX2ltYWdlGAYgASgJEhYKDmRlc2lyZWRfZGlnZXN0GAcgASgJEhQKDGFjdHVhbF9pbWFnZRgIIAEoCRIVCg1hY3R1YWxfZGlnZXN0GAkgASgJEhAKCHJldmlzaW9uGAogASgJEhcKD3RyYWZmaWNfcGVyY2VudBgLIAEoBRINCgVyZWFkeRgMIAEoCBIVCg1yZWFkeV9tZXNzYWdlGA0gASgJEgsKA3VybBgOIAEoCRITCgtjb25zb2xlX3VybBgPIAEoCRIsCgVzdGF0ZRgQIAEoDjIdLndhdGFyaWRvcmkudjEuSW52ZW50b3J5U3RhdGUSGAoQbWFuaWZlc3Rfc2VydmljZRgRIAEoCSJlCgxBcHBseVJlcXVlc3QSCwoDZW52GAEgASgJEg8KB3NlcnZpY2UYAiABKAkSDwoHZHJ5X3J1bhgDIAEoCBIXCg90aW1lb3V0X3NlY29uZHMYBCABKAUSDQoFZm9yY2UYBSABKAgiYgoNQXBwbHlSZXNwb25zZRILCgNlbnYYASABKAkSDwoHZHJ5X3J1bhgCIAEoCBIzCghzZXJ2aWNlcxgDIAMoCzIhLndhdGFyaWRvcmkudjEuQXBwbHlTZXJ2aWNlUmVzdWx0IqcBChJBcHBseVNlcnZpY2VSZXN1bHQSDwoHc2VydmljZRgBIAEoCRIVCg1kZXNpcmVkX2ltYWdlGAIgASgJEhQKDGFjdHVhbF9pbWFnZRgDIAEoCRIQCghyZXZpc2lvbhgEIAEoCRILCgN1cmwYBSABKAkSDwoHaW5fc3luYxgGIAEoCBIQCghydW5fbmFtZRgHIAEoCRIRCgl1bm1hbmFnZWQYCCADKAkiPwoSUGxhblByb21vdGVSZXF1ZXN0EgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSDwoHc2VydmljZRgDIAEoCSJaChNQbGFuUHJvbW90ZVJlc3BvbnNlEgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSKQoFaXRlbXMYAyADKAsyGi53YXRhcmlkb3JpLnYxLlByb21vdGVJdGVtIkIKFUV4ZWN1dGVQcm9tb3RlUmVxdWVzdBIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEg8KB3NlcnZpY2UYAyABKAkicAoWRXhlY3V0ZVByb21vdGVSZXNwb25zZRIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEhEKCWNvbW1pdF9pZBgDIAEoCRIpCgVpdGVtcxgEIAMoCzIaLndhdGFyaWRvcmkudjEuUHJvbW90ZUl0ZW0ibAoLUHJvbW90ZUl0ZW0SDwoHc2VydmljZRgBIAEoCRISCgpmcm9tX2ltYWdlGAIgASgJEhEKCW9sZF9pbWFnZRgDIAEoCRIRCgluZXdfaW1hZ2UYBCABKAkSEgoKbmVlZHNfY29weRgFIAEoCCJFChNQbGFuUm9sbGJhY2tSZXF1ZXN0EgsKA2VudhgBIAEoCRIPCgdzZXJ2aWNlGAIgASgJEhAKCHJldmlzaW9uGAMgASgJIk8KFFBsYW5Sb2xsYmFja1Jlc3BvbnNlEgsKA2VudhgBIAEoCRIqCgVpdGVtcxgCIAMoCzIbLndhdGFyaWRvcmkudjEuUm9sbGJhY2tJdGVtIkgKFkV4ZWN1dGVSb2xsYmFja1JlcXVlc3QSCwoDZW52GAEgASgJEg8KB3NlcnZpY2UYAiABKAkSEAoIcmV2aXNpb24YAyABKAkiUgoXRXhlY3V0ZVJvbGxiYWNrUmVzcG9uc2USCwoDZW52GAEgASgJEioKBWl0ZW1zGAIgAygLMhsud2F0YXJpZG9yaS52MS5Sb2xsYmFja0l0ZW0ikQEKDFJvbGxiYWNrSXRlbRIPCgdzZXJ2aWNlGAEgASgJEhgKEGN1cnJlbnRfcmV2aXNpb24YAiABKAkSFQoNY3VycmVudF9pbWFnZRgDIAEoCRIXCg90YXJnZXRfcmV2aXNpb24YBCABKAkSFAoMdGFyZ2V0X2ltYWdlGAUgASgJEhAKCHJ1bl9uYW1lGAYgASgJIiwKDkhpc3RvcnlSZXF1ZXN0EgsKA2VudhgBIAEoCRINCgVsaW1pdBgCIAEoBSI/Cg9IaXN0b3J5UmVzcG9uc2USLAoHZW50cmllcxgBIAMoCzIbLndhdGFyaWRvcmkudjEuSGlzdG9yeUVudHJ5IpACCgxIaXN0b3J5RW50cnkSCgoCaWQYASABKAMSKAoEdGltZRgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFYWN0b3IYAyABKAkSJQoGYWN0aW9uGAQgASgOMhUud2F0YXJpZG9yaS52MS5BY3Rpb24SCwoDZW52GAUgASgJEg8KB3NlcnZpY2UYBiABKAkSDgoGZGlnZXN0GAcgASgJEjcKBmRldGFpbBgIIAMoCzInLndhdGFyaWRvcmkudjEuSGlzdG9yeUVudHJ5LkRldGFpbEVudHJ5Gi0KC0RldGFpbEVudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiPgoPVGltZWxpbmVSZXF1ZXN0EgsKA2VudhgBIAEoCRIPCgdzZXJ2aWNlGAIgASgJEg0KBWxpbWl0GAMgASgFIkEKEFRpbWVsaW5lUmVzcG9uc2USLQoHZW50cmllcxgBIAMoCzIcLndhdGFyaWRvcmkudjEuVGltZWxpbmVFbnRyeSKAAgoNVGltZWxpbmVFbnRyeRILCgNlbnYYASABKAkSDwoHc2VydmljZRgCIAEoCRIQCghyZXZpc2lvbhgDIAEoCRINCgVpbWFnZRgEIAEoCRIOCgZkaWdlc3QYBSABKAkSLwoLY3JlYXRlX3RpbWUYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBXJlYWR5GAcgASgIEhcKD3RyYWZmaWNfcGVyY2VudBgIIAEoBRIPCgdjdXJyZW50GAkgASgIEg8KB2Rlc2lyZWQYCiABKAgSEwoLY29uc29sZV91cmwYCyABKAkSEAoIcnVuX25hbWUYDCABKAkqcgoJU3luY1N0YXRlEhoKFlNZTkNfU1RBVEVfVU5TUEVDSUZJRUQQABIWChJTWU5DX1NUQVRFX0lOX1NZTkMQARIUChBTWU5DX1NUQVRFX0RSSUZUEAISGwoXU1lOQ19TVEFURV9OT1RfREVQTE9ZRUQQAyqqAQoOSW52ZW50b3J5U3RhdGUSHwobSU5WRU5UT1JZX1NUQVRFX1VOU1BFQ0lGSUVEEAASGwoXSU5WRU5UT1JZX1NUQVRFX0lOX1NZTkMQARIZChVJTlZFTlRPUllfU1RBVEVfRFJJRlQQAhIgChxJTlZFTlRPUllfU1RBVEVfTk9UX0RFUExPWUVEEAMSHQoZSU5WRU5UT1JZX1NUQVRFX1VOTUFOQUdFRBAEKlsKBkFjdGlvbhIWChJBQ1RJT05fVU5TUEVDSUZJRUQQABIQCgxBQ1RJT05fQVBQTFkQARISCg5BQ1RJT05fUFJPTU9URRACEhMKD0FDVElPTl9ST0xMQkFDSxADKkQKBlBvbGljeRIWChJQT0xJQ1lfVU5TUEVDSUZJRUQQABIPCgtQT0xJQ1lfQVVUTxABEhEKDVBPTElDWV9NQU5VQUwQAjLuBgoRRGVwbG95bWVudFNlcnZpY2USZQoQTGlzdEVudmlyb25tZW50cxImLndhdGFyaWRvcmkudjEuTGlzdEVudmlyb25tZW50c1JlcXVlc3QaJy53YXRhcmlkb3JpLnYxLkxpc3RFbnZpcm9ubWVudHNSZXNwb25zZSIAEkcKBlN0YXR1cxIcLndhdGFyaWRvcmkudjEuU3RhdHVzUmVxdWVzdBodLndhdGFyaWRvcmkudjEuU3RhdHVzUmVzcG9uc2UiABJQCglJbnZlbnRvcnkSHy53YXRhcmlkb3JpLnYxLkludmVudG9yeVJlcXVlc3QaIC53YXRhcmlkb3JpLnYxLkludmVudG9yeVJlc3BvbnNlIgASRAoFQXBwbHkSGy53YXRhcmlkb3JpLnYxLkFwcGx5UmVxdWVzdBocLndhdGFyaWRvcmkudjEuQXBwbHlSZXNwb25zZSIAElYKC1BsYW5Qcm9tb3RlEiEud2F0YXJpZG9yaS52MS5QbGFuUHJvbW90ZVJlcXVlc3QaIi53YXRhcmlkb3JpLnYxLlBsYW5Qcm9tb3RlUmVzcG9uc2UiABJfCg5FeGVjdXRlUHJvbW90ZRIkLndhdGFyaWRvcmkudjEuRXhlY3V0ZVByb21vdGVSZXF1ZXN0GiUud2F0YXJpZG9yaS52MS5FeGVjdXRlUHJvbW90ZVJlc3BvbnNlIgASWQoMUGxhblJvbGxiYWNrEiIud2F0YXJpZG9yaS52MS5QbGFuUm9sbGJhY2tSZXF1ZXN0GiMud2F0YXJpZG9yaS52MS5QbGFuUm9sbGJhY2tSZXNwb25zZSIAEmIKD0V4ZWN1dGVSb2xsYmFjaxIlLndhdGFyaWRvcmkudjEuRXhlY3V0ZVJvbGxiYWNrUmVxdWVzdBomLndhdGFyaWRvcmkudjEuRXhlY3V0ZVJvbGxiYWNrUmVzcG9uc2UiABJKCgdIaXN0b3J5Eh0ud2F0YXJpZG9yaS52MS5IaXN0b3J5UmVxdWVzdBoeLndhdGFyaWRvcmkudjEuSGlzdG9yeVJlc3BvbnNlIgASTQoIVGltZWxpbmUSHi53YXRhcmlkb3JpLnYxLlRpbWVsaW5lUmVxdWVzdBofLndhdGFyaWRvcmkudjEuVGltZWxpbmVSZXNwb25zZSIAQrgBChFjb20ud2F0YXJpZG9yaS52MUIPV2F0YXJpZG9yaVByb3RvUAFaPWdpdGh1Yi5jb20vUmV0cjA0MTMvd2F0YXJpZG9yaS9nZW4vd2F0YXJpZG9yaS92MTt3YXRhcmlkb3JpdjGiAgNXWFiqAg1XYXRhcmlkb3JpLlYxygINV2F0YXJpZG9yaVxWMeICGVdhdGFyaWRvcmlcVjFcR1BCTWV0YWRhdGHqAg5XYXRhcmlkb3JpOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message wataridori.v1.ListEnvironmentsRequest
@@ -162,6 +162,8 @@ export type ServiceStatus = Message<"wataridori.v1.ServiceStatus"> & {
   env: string;
 
   /**
+   * service is the manifest identity, shared across environments.
+   *
    * @generated from field: string service = 2;
    */
   service: string;
@@ -220,6 +222,14 @@ export type ServiceStatus = Message<"wataridori.v1.ServiceStatus"> & {
    * @generated from field: string console_url = 13;
    */
   consoleUrl: string;
+
+  /**
+   * run_name is the Cloud Run service behind it, which may differ per
+   * environment (the manifest's cloudRunName).
+   *
+   * @generated from field: string run_name = 14;
+   */
+  runName: string;
 };
 
 /**
@@ -348,6 +358,14 @@ export type InventoryItem = Message<"wataridori.v1.InventoryItem"> & {
    * @generated from field: wataridori.v1.InventoryState state = 16;
    */
   state: InventoryState;
+
+  /**
+   * manifest_service is the manifest identity when it differs from the Cloud
+   * Run service name in `service`.
+   *
+   * @generated from field: string manifest_service = 17;
+   */
+  manifestService: string;
 };
 
 /**
@@ -385,6 +403,14 @@ export type ApplyRequest = Message<"wataridori.v1.ApplyRequest"> & {
    * @generated from field: int32 timeout_seconds = 4;
    */
   timeoutSeconds: number;
+
+  /**
+   * force applies even when the running service carries configuration the
+   * manifest cannot express, which the replacement would drop.
+   *
+   * @generated from field: bool force = 5;
+   */
+  force: boolean;
 };
 
 /**
@@ -460,6 +486,20 @@ export type ApplyServiceResult = Message<"wataridori.v1.ApplyServiceResult"> & {
    * @generated from field: bool in_sync = 6;
    */
   inSync: boolean;
+
+  /**
+   * run_name is the Cloud Run service actually written.
+   *
+   * @generated from field: string run_name = 7;
+   */
+  runName: string;
+
+  /**
+   * unmanaged lists settings on the running service this apply would drop.
+   *
+   * @generated from field: repeated string unmanaged = 8;
+   */
+  unmanaged: string[];
 };
 
 /**
@@ -761,6 +801,13 @@ export type RollbackItem = Message<"wataridori.v1.RollbackItem"> & {
    * @generated from field: string target_image = 5;
    */
   targetImage: string;
+
+  /**
+   * run_name is the Cloud Run service whose traffic moves.
+   *
+   * @generated from field: string run_name = 6;
+   */
+  runName: string;
 };
 
 /**
@@ -864,6 +911,140 @@ export type HistoryEntry = Message<"wataridori.v1.HistoryEntry"> & {
  */
 export const HistoryEntrySchema: GenMessage<HistoryEntry> = /*@__PURE__*/
   messageDesc(file_wataridori_v1_wataridori, 24);
+
+/**
+ * @generated from message wataridori.v1.TimelineRequest
+ */
+export type TimelineRequest = Message<"wataridori.v1.TimelineRequest"> & {
+  /**
+   * optional filter, empty means all environments
+   *
+   * @generated from field: string env = 1;
+   */
+  env: string;
+
+  /**
+   * optional filter
+   *
+   * @generated from field: string service = 2;
+   */
+  service: string;
+
+  /**
+   * limit bounds the revisions read per service. 0 means the server default.
+   *
+   * @generated from field: int32 limit = 3;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message wataridori.v1.TimelineRequest.
+ * Use `create(TimelineRequestSchema)` to create a new message.
+ */
+export const TimelineRequestSchema: GenMessage<TimelineRequest> = /*@__PURE__*/
+  messageDesc(file_wataridori_v1_wataridori, 25);
+
+/**
+ * @generated from message wataridori.v1.TimelineResponse
+ */
+export type TimelineResponse = Message<"wataridori.v1.TimelineResponse"> & {
+  /**
+   * entries are merged across environments and sorted newest first, so two
+   * environments' deploys interleave on one axis.
+   *
+   * @generated from field: repeated wataridori.v1.TimelineEntry entries = 1;
+   */
+  entries: TimelineEntry[];
+};
+
+/**
+ * Describes the message wataridori.v1.TimelineResponse.
+ * Use `create(TimelineResponseSchema)` to create a new message.
+ */
+export const TimelineResponseSchema: GenMessage<TimelineResponse> = /*@__PURE__*/
+  messageDesc(file_wataridori_v1_wataridori, 26);
+
+/**
+ * TimelineEntry is one Cloud Run revision of one managed service.
+ *
+ * @generated from message wataridori.v1.TimelineEntry
+ */
+export type TimelineEntry = Message<"wataridori.v1.TimelineEntry"> & {
+  /**
+   * @generated from field: string env = 1;
+   */
+  env: string;
+
+  /**
+   * @generated from field: string service = 2;
+   */
+  service: string;
+
+  /**
+   * @generated from field: string revision = 3;
+   */
+  revision: string;
+
+  /**
+   * @generated from field: string image = 4;
+   */
+  image: string;
+
+  /**
+   * @generated from field: string digest = 5;
+   */
+  digest: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp create_time = 6;
+   */
+  createTime?: Timestamp | undefined;
+
+  /**
+   * @generated from field: bool ready = 7;
+   */
+  ready: boolean;
+
+  /**
+   * @generated from field: int32 traffic_percent = 8;
+   */
+  trafficPercent: number;
+
+  /**
+   * current marks the revision serving the largest share of traffic.
+   *
+   * @generated from field: bool current = 9;
+   */
+  current: boolean;
+
+  /**
+   * desired marks the revision whose digest the Git manifest points at. When
+   * current and desired sit on different rows, that gap is the drift.
+   *
+   * @generated from field: bool desired = 10;
+   */
+  desired: boolean;
+
+  /**
+   * @generated from field: string console_url = 11;
+   */
+  consoleUrl: string;
+
+  /**
+   * run_name is the Cloud Run service the revision belongs to.
+   *
+   * @generated from field: string run_name = 12;
+   */
+  runName: string;
+};
+
+/**
+ * Describes the message wataridori.v1.TimelineEntry.
+ * Use `create(TimelineEntrySchema)` to create a new message.
+ */
+export const TimelineEntrySchema: GenMessage<TimelineEntry> = /*@__PURE__*/
+  messageDesc(file_wataridori_v1_wataridori, 27);
 
 /**
  * SyncState classifies one service's desired-vs-actual comparison.
@@ -1099,6 +1280,20 @@ export const DeploymentService: GenService<{
     methodKind: "unary";
     input: typeof HistoryRequestSchema;
     output: typeof HistoryResponseSchema;
+  },
+  /**
+   * Timeline reconstructs the deployment history from Cloud Run revisions,
+   * newest first. History only knows what Wataridori itself did; Timeline
+   * reads the observed side, so deploys made by a CI pipeline or by hand
+   * appear too. That makes it the view that explains how two environments
+   * drifted apart.
+   *
+   * @generated from rpc wataridori.v1.DeploymentService.Timeline
+   */
+  timeline: {
+    methodKind: "unary";
+    input: typeof TimelineRequestSchema;
+    output: typeof TimelineResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_wataridori_v1_wataridori, 0);

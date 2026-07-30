@@ -394,6 +394,129 @@ a {
   font-size: 13px;
 }
 
+/* --- timeline --- */
+
+/*
+ * Environments read left to right in promotion order, matching the Pipeline
+ * board, so the same spatial habit answers "what is prod running" in both.
+ */
+.env-cards {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.env-cards-arrow {
+  display: flex;
+  align-items: center;
+  color: var(--border-strong);
+}
+
+.env-card {
+  flex: 1 1 0;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.env-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.env-card-head strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.env-card-head .muted {
+  font-size: 11px;
+}
+
+.env-card-row + .env-card-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-sub);
+}
+
+.env-card-service {
+  font-size: 13px;
+}
+
+.env-card-digest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.env-card-row .muted {
+  font-size: 11px;
+}
+
+/* Date separators turn a flat table into something that reads chronologically. */
+.tl-date td {
+  padding: 6px 12px;
+  background: var(--surface-sub);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.tl-current td {
+  background: var(--accent-bg);
+}
+
+.chip {
+  display: inline-block;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 8px;
+  background: var(--surface-sub);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.marks {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.badge {
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.badge-live {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.badge-git {
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+
+.badge-warn {
+  border: 1px solid var(--warn);
+  color: var(--warn);
+}
+
+.badge-bad {
+  border: 1px solid var(--bad);
+  color: var(--bad);
+}
+
 /* --- filter bar --- */
 
 .filters {

@@ -22,6 +22,21 @@ test("inventory surfaces services no manifest declares", async ({ page }) => {
   await expect(legacy).toContainText("unmanaged");
 });
 
+test("inventory names the Cloud Run service and its manifest identity", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Inventory" }).click();
+
+  // The Cloud Run name is what exists in the project; the manifest name is
+  // what ties dev and prod together, so both have to be visible.
+  const row = page.locator("table.table tbody tr").filter({ hasText: "checkout-api-dev" });
+  await expect(row).toContainText("checkout-api-dev");
+  await expect(row).toContainText("· checkout-api");
+
+  // A service whose names match must not repeat itself.
+  const worker = page.locator("table.table tbody tr").filter({ hasText: "worker" });
+  await expect(worker).not.toContainText("·");
+});
+
 test("inventory filters by environment", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Inventory" }).click();

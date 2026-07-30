@@ -76,6 +76,7 @@ func statusToProto(res *core.StatusResult) *v1.StatusResponse {
 			TrafficPercent: s.TrafficPct,
 			Url:            s.URL,
 			ConsoleUrl:     s.ConsoleURL,
+			RunName:        s.RunName,
 		})
 	}
 	return out
@@ -100,22 +101,23 @@ func inventoryToProto(res *core.InventoryResult) *v1.InventoryResponse {
 	out := &v1.InventoryResponse{}
 	for _, item := range res.Items {
 		out.Items = append(out.Items, &v1.InventoryItem{
-			Env:            item.Env,
-			Project:        item.Project,
-			Region:         item.Region,
-			Service:        item.Service,
-			Managed:        item.Managed,
-			DesiredImage:   item.DesiredImage,
-			DesiredDigest:  item.DesiredDigest,
-			ActualImage:    item.ActualImage,
-			ActualDigest:   item.ActualDigest,
-			Revision:       item.Revision,
-			TrafficPercent: item.TrafficPct,
-			Ready:          item.Ready,
-			ReadyMessage:   item.ReadyMessage,
-			Url:            item.URL,
-			ConsoleUrl:     item.ConsoleURL,
-			State:          inventoryStateToProto(item.State),
+			Env:             item.Env,
+			Project:         item.Project,
+			Region:          item.Region,
+			Service:         item.Service,
+			Managed:         item.Managed,
+			DesiredImage:    item.DesiredImage,
+			DesiredDigest:   item.DesiredDigest,
+			ActualImage:     item.ActualImage,
+			ActualDigest:    item.ActualDigest,
+			Revision:        item.Revision,
+			TrafficPercent:  item.TrafficPct,
+			Ready:           item.Ready,
+			ReadyMessage:    item.ReadyMessage,
+			Url:             item.URL,
+			ConsoleUrl:      item.ConsoleURL,
+			State:           inventoryStateToProto(item.State),
+			ManifestService: item.ManifestService,
 		})
 	}
 	return out
@@ -147,6 +149,7 @@ func applyFromProto(msg *v1.ApplyRequest) core.ApplyRequest {
 		Env:     msg.GetEnv(),
 		Service: msg.GetService(),
 		DryRun:  msg.GetDryRun(),
+		Force:   msg.GetForce(),
 		Timeout: timeout,
 	}
 }
@@ -161,6 +164,8 @@ func applyToProto(res *core.ApplyResult) *v1.ApplyResponse {
 			Revision:     s.Revision,
 			Url:          s.URL,
 			InSync:       s.InSync,
+			RunName:      s.RunName,
+			Unmanaged:    s.Unmanaged,
 		})
 	}
 	return out
@@ -206,6 +211,7 @@ func rollbackItemsToProto(items []core.RollbackItem) []*v1.RollbackItem {
 			CurrentImage:    it.CurrentImage,
 			TargetRevision:  it.TargetRevision,
 			TargetImage:     it.TargetImage,
+			RunName:         it.RunName,
 		})
 	}
 	return out
@@ -233,6 +239,29 @@ func historyToProto(res *core.HistoryResult) *v1.HistoryResponse {
 			Service: e.Service,
 			Digest:  e.Digest,
 			Detail:  e.Detail,
+		})
+	}
+	return out
+}
+
+// --- Timeline ---
+
+func timelineToProto(res *core.TimelineResult) *v1.TimelineResponse {
+	out := &v1.TimelineResponse{}
+	for _, e := range res.Entries {
+		out.Entries = append(out.Entries, &v1.TimelineEntry{
+			Env:            e.Env,
+			Service:        e.Service,
+			Revision:       e.Revision,
+			Image:          e.Image,
+			Digest:         e.Digest,
+			CreateTime:     timestamppb.New(e.CreateTime),
+			Ready:          e.Ready,
+			TrafficPercent: e.TrafficPct,
+			Current:        e.Current,
+			Desired:        e.Desired,
+			ConsoleUrl:     e.ConsoleURL,
+			RunName:        e.RunName,
 		})
 	}
 	return out

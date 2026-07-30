@@ -165,6 +165,27 @@ func TestServiceValidation(t *testing.T) {
 			svc:     "name: app\nimage: gcr.io/p/app@" + digestA + "\nscaling: {min: 5, max: 2}\n",
 			wantErr: "must be >=",
 		},
+		{
+			name:    "env with both value and secret",
+			svc:     "name: app\nimage: gcr.io/p/app@" + digestA + "\nenv: [{name: A, value: x, secret: s}]\n",
+			wantErr: `sets both "value" and "secret"`,
+		},
+		{
+			name:    "secret version without a secret",
+			svc:     "name: app\nimage: gcr.io/p/app@" + digestA + "\nenv: [{name: A, value: x, version: \"3\"}]\n",
+			wantErr: `sets "version" without "secret"`,
+		},
+		{
+			name:    "duplicate env name",
+			svc:     "name: app\nimage: gcr.io/p/app@" + digestA + "\nenv: [{name: A, value: x}, {name: A, value: y}]\n",
+			wantErr: `env "A" is declared twice`,
+		},
+		{
+			// The manifest name is free-form, but cloudRunName reaches the API.
+			name:    "invalid cloudRunName",
+			svc:     "name: app\ncloudRunName: App_Prod\nimage: gcr.io/p/app@" + digestA + "\n",
+			wantErr: "not a valid Cloud Run service name",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

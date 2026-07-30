@@ -24,22 +24,27 @@ const (
 )
 
 type InventoryItem struct {
-	Env           string         `json:"env"`
-	Project       string         `json:"project"`
-	Region        string         `json:"region"`
-	Service       string         `json:"service"`
-	Managed       bool           `json:"managed"`
-	DesiredImage  string         `json:"desiredImage,omitempty"`
-	DesiredDigest string         `json:"desiredDigest,omitempty"`
-	ActualImage   string         `json:"actualImage,omitempty"`
-	ActualDigest  string         `json:"actualDigest,omitempty"`
-	Revision      string         `json:"revision,omitempty"`
-	TrafficPct    int32          `json:"trafficPercent,omitempty"`
-	Ready         bool           `json:"ready,omitempty"`
-	ReadyMessage  string         `json:"readyMessage,omitempty"`
-	URL           string         `json:"url,omitempty"`
-	ConsoleURL    string         `json:"consoleUrl,omitempty"`
-	State         InventoryState `json:"state"`
+	Env     string `json:"env"`
+	Project string `json:"project"`
+	Region  string `json:"region"`
+	// Service is the Cloud Run service name — this is an inventory of what
+	// exists in the project, so it is named the way Cloud Run names it.
+	Service string `json:"service"`
+	Managed bool   `json:"managed"`
+	// ManifestService is the manifest identity when managed and it differs
+	// from the Cloud Run name (manifest.Service.CloudRunName).
+	ManifestService string         `json:"manifestService,omitempty"`
+	DesiredImage    string         `json:"desiredImage,omitempty"`
+	DesiredDigest   string         `json:"desiredDigest,omitempty"`
+	ActualImage     string         `json:"actualImage,omitempty"`
+	ActualDigest    string         `json:"actualDigest,omitempty"`
+	Revision        string         `json:"revision,omitempty"`
+	TrafficPct      int32          `json:"trafficPercent,omitempty"`
+	Ready           bool           `json:"ready,omitempty"`
+	ReadyMessage    string         `json:"readyMessage,omitempty"`
+	URL             string         `json:"url,omitempty"`
+	ConsoleURL      string         `json:"consoleUrl,omitempty"`
+	State           InventoryState `json:"state"`
 }
 
 type InventoryResult struct {
@@ -68,6 +73,7 @@ func (e *Engine) Inventory(ctx context.Context, req InventoryRequest) (*Inventor
 			item := inventoryActualItem(env, deployed)
 			if svc, ok := managed[deployed.Service]; ok {
 				item.Managed = true
+				item.ManifestService = svc.Name
 				item.DesiredImage = svc.Image
 				if _, digest, err := manifest.SplitDigest(svc.Image); err == nil {
 					item.DesiredDigest = digest
@@ -85,13 +91,14 @@ func (e *Engine) Inventory(ctx context.Context, req InventoryRequest) (*Inventor
 				continue
 			}
 			item := InventoryItem{
-				Env:          env.Name,
-				Project:      env.GCP.Project,
-				Region:       env.GCP.Region,
-				Service:      svc.Name,
-				Managed:      true,
-				DesiredImage: svc.Image,
-				State:        InventoryNotDeployed,
+				Env:             env.Name,
+				Project:         env.GCP.Project,
+				Region:          env.GCP.Region,
+				Service:         name,
+				Managed:         true,
+				ManifestService: svc.Name,
+				DesiredImage:    svc.Image,
+				State:           InventoryNotDeployed,
 			}
 			if _, digest, err := manifest.SplitDigest(svc.Image); err == nil {
 				item.DesiredDigest = digest
@@ -124,6 +131,8 @@ func (e *Engine) inventoryEnvs(only string) ([]*manifest.Environment, error) {
 	return envs, nil
 }
 
+// managedServices keys the manifests by Cloud Run service name, because that
+// is what the inventory matches against what Cloud Run reports.
 func (e *Engine) managedServices(env *manifest.Environment) (map[string]*manifest.Service, error) {
 	services, err := e.Repo.LoadServices(env)
 	if err != nil {
@@ -131,7 +140,7 @@ func (e *Engine) managedServices(env *manifest.Environment) (map[string]*manifes
 	}
 	managed := make(map[string]*manifest.Service, len(services))
 	for _, svc := range services {
-		managed[svc.Name] = svc
+		managed[svc.RunName()] = svc
 	}
 	return managed, nil
 }

@@ -5,7 +5,12 @@ import { client } from "../api/client";
 import { actionLabel, errorMessage, localTime, shortDigest } from "../lib/format";
 import { EnvFilter } from "./EnvFilter";
 
-/** Activity lists recorded apply / promote / rollback operations. */
+/**
+ * Activity lists the apply / promote / rollback operations Wataridori itself
+ * recorded. It is deliberately narrower than the Timeline view: a service
+ * deployed by a CI pipeline leaves nothing here, which is why the empty state
+ * points at Timeline instead of implying nothing happened.
+ */
 export function Activity() {
   const [env, setEnv] = useState("");
   const query = useQuery({
@@ -47,7 +52,10 @@ export function Activity() {
             {query.isSuccess && entries.length === 0 && (
               <tr>
                 <td className="empty" colSpan={7}>
-                  No operations recorded yet.
+                  No operations recorded by Wataridori yet.
+                  <br />
+                  Deploys made outside Wataridori — by a CI pipeline or by hand — are not
+                  recorded here. See the Timeline tab for what Cloud Run actually ran.
                 </td>
               </tr>
             )}

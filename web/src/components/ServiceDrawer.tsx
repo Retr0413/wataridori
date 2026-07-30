@@ -60,6 +60,9 @@ export function ServiceDrawer({ status, onClose }: Props) {
             <div className="drawer-title">{status.service}</div>
             <div className="muted" style={{ fontSize: 12 }}>
               {status.env}
+              {/* The Cloud Run service can be named per environment; show it
+                  when it differs so the deep links below are unambiguous. */}
+              {status.runName && status.runName !== status.service && ` · ${status.runName}`}
             </div>
           </div>
           <button className="btn" onClick={onClose}>

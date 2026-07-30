@@ -17,6 +17,9 @@ type CloudRun interface {
 	// project/region, including services not managed by Wataridori manifests.
 	ListServices(ctx context.Context, env *manifest.Environment) ([]cloudrun.Deployed, error)
 	Apply(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*cloudrun.Deployed, error)
+	// UnmanagedSettings lists configuration on the running service that the
+	// manifest cannot express, which a full-replacement apply would drop.
+	UnmanagedSettings(ctx context.Context, env *manifest.Environment, svc *manifest.Service) ([]string, error)
 	ListRevisions(ctx context.Context, env *manifest.Environment, service string) ([]cloudrun.Revision, error)
 	SetTraffic(ctx context.Context, env *manifest.Environment, service, revision string) error
 }

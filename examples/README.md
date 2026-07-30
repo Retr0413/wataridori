@@ -26,3 +26,36 @@ Wataridori のマニフェストリポジトリのサンプル。quickstart と�
    wataridori apply --env prod    # prod へデプロイ
    wataridori status              # Git と Cloud Run の突き合わせ
    ```
+
+## 環境ごとに Cloud Run service 名が違う場合
+
+`my-api-dev` / `my-api-prod` のように service 名へ環境を埋め込んでいる構成
+(1 プロジェクトに dev と prod を並べると起きやすい)では、`name` と
+`cloudRunName` を書き分ける。
+
+```yaml
+# environments/dev/my-api.yaml
+name: my-api             # 環境をまたいだ同一性。promote はこの名前で対応付ける
+cloudRunName: my-api-dev # 実際の Cloud Run service 名
+image: ...
+```
+
+`name` を揃えないと `promote` は
+`service "my-api-prod" exists in "prod" but not in "dev"` で失敗する。
+
+## Secret Manager 参照の env
+
+`apply` は service を全置換するため、実際に動いている env はすべてマニフェストに
+書き切る必要がある。Secret Manager 参照は `secret` で書く。
+
+```yaml
+env:
+  - name: LOG_LEVEL
+    value: debug
+  - name: JWT_SECRET
+    secret: my-api-jwt-dev   # Secret Manager の secret 名
+    version: latest          # 省略可
+```
+
+書き漏らした env は apply で Cloud Run から消える。既存の service を取り込むときは
+`gcloud run services describe <name> --format=json` で現状の env を確認してから書く。

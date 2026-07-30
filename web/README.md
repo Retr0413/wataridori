@@ -10,8 +10,18 @@ Connect RPC で `DeploymentService` を呼ぶ。
 dev → prod へ横に流れるのが見えることが、この画面の目的。
 
 - **Pipeline** — service × 環境。cell クリックで詳細、列の間の矢印が昇格導線
+- **Timeline** — Cloud Run の revision から復元したデプロイ履歴
 - **Inventory** — Cloud Run 上の service 一覧(manifest 管理外のものを含む)
-- **Activity** — apply / promote / rollback の履歴
+- **Activity** — Wataridori が記録した apply / promote / rollback の履歴
+
+**Timeline と Activity は情報源が違う**。Activity は SQLite の操作記録なので、
+CI や手動でデプロイされた service では空になる。Timeline は `ListRevisions` で
+Cloud Run 側を読むため、誰がデプロイしたかに関係なく事実が残る。
+
+Timeline の上部「now serving」は各環境が実際に動かしている revision を昇格順に
+並べる。digest だけでは環境間の差は読めないが、経過時間(「28 日前」)が並ぶと
+prod がどれだけ dev から遅れているかが一目で分かる。行の `serving` と `in Git`
+のマークが別々の revision に付いている状態が、そのまま drift の正体になる。
 
 昇格と rollback は **Plan → 確認 → Execute** の二段階。確認ダイアログは
 `PlanPromote` / `PlanRollback` を毎回引き直すので、表示される差分はサーバが実際に
@@ -21,7 +31,7 @@ dev → prod へ横に流れるのが見えることが、この画面の目的�
 
 - `src/gen/`: proto から生成した型と client(**手で編集しない**。`make gen`)
 - `src/api/`: Connect transport
-- `src/views/`: Pipeline / Inventory / Activity
+- `src/views/`: Pipeline / Timeline / Inventory / Activity
 - `src/components/`: drawer・ダイアログなど画面をまたぐ部品
 - `src/lib/`: board の行組み立てと表示フォーマット(純粋関数)
 - `src/theme.css`: パレット。色の定義はここ 1 箇所

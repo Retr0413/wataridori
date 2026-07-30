@@ -60,6 +60,44 @@ export function localTime(ts: Timestamp | undefined): string {
   return timestampDate(ts).toLocaleString();
 }
 
+/** localDate is the day key used to group a timeline into date sections. */
+export function localDate(ts: Timestamp | undefined): string {
+  if (!ts) return "";
+  return timestampDate(ts).toLocaleDateString();
+}
+
+/** clockTime drops the date, which the timeline's date heading already shows. */
+export function clockTime(ts: Timestamp | undefined): string {
+  if (!ts) return "-";
+  return timestampDate(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
+const units: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 365 * 24 * 3600],
+  ["month", 30 * 24 * 3600],
+  ["day", 24 * 3600],
+  ["hour", 3600],
+  ["minute", 60],
+];
+
+/**
+ * relativeTime renders "28 days ago". Age is what makes two environments
+ * comparable at a glance — an absolute timestamp alone does not show that
+ * prod has been sitting a month behind dev.
+ */
+export function relativeTime(ts: Timestamp | undefined): string {
+  if (!ts) return "";
+  const seconds = (timestampDate(ts).getTime() - Date.now()) / 1000;
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) {
+      return relative.format(Math.round(seconds / size), unit);
+    }
+  }
+  return relative.format(Math.round(seconds), "second");
+}
+
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
