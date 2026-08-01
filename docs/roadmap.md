@@ -1,43 +1,54 @@
-# ロードマップ
+# Roadmap
 
-MVP を絞ることが最重要。Phase 1 を早く出して README と quickstart を磨く方が、
-機能を積むより OSS としては先。
-Phase 1 後の追加機能候補と優先順位は [future-features.md](future-features.md) にまとめる。
+Wataridori stays small by finishing release quality before adding advanced
+delivery features.
 
-## Phase 1 — CLI だけの MVP(目標: 2〜3 週間)
+## Implemented foundation
 
-UI なし。これだけで既存の手動昇格プログラムを置き換えられる状態にする。
-詳細仕様は [spec/phase1-cli.md](spec/phase1-cli.md)、実装タスクは
-[GitHub Milestone "Phase 1 — CLI MVP"](https://github.com/Retr0413/wataridori/milestone/1) を正とする。
+- [x] manifest schema and validation
+- [x] digest-pinned Cloud Run apply
+- [x] digest promotion with optional Artifact Registry copy
+- [x] revision-based rollback
+- [x] status, inventory, and drift classification
+- [x] local SQLite operation history
+- [x] Connect RPC API generated from protobuf
+- [x] controller reconcile loop foundation
+- [x] embedded React Web UI
+- [x] Pipeline, Timeline, Inventory, and Activity views
+- [x] promotion and rollback execution from the UI
+- [x] Go tests and Playwright E2E coverage
+- [x] CI and GoReleaser configuration
 
-- [ ] マニフェスト YAML スキーマの設計(環境定義・更新ポリシー・イメージ digest)
-- [ ] `wataridori apply` — マニフェストどおりに Cloud Run へデプロイ
-- [ ] `wataridori promote --from dev --to prod` — digest を書き写して commit(必要なら AR 間イメージコピー)
-- [ ] `wataridori rollback --env prod` — 前リビジョンへトラフィックを戻す
-- [ ] `wataridori status` — 環境 × イメージの現在状態一覧
-- [ ] `wataridori history` — デプロイ履歴(SQLite)
-- [ ] goreleaser + GitHub Actions(lint / test / release)
-- [ ] README(アーキ図 + 3 分 quickstart)
+## v0.1.0: public CLI release
 
-## Phase 2 — コントローラ + Web UI
+- [ ] complete the public-repository security and documentation audit
+- [ ] run the full dev-to-prod acceptance test on real GCP
+- [ ] add PR-based promotion
+- [ ] verify GoReleaser snapshot artifacts and the container image
+- [ ] publish installation, IAM, troubleshooting, and rollback runbooks
+- [ ] tag and publish `v0.1.0`
 
-- [ ] Reconcile loop(Git poll / webhook → Cloud Run へ反映)
-- [ ] ブランチ自動追従(dev 環境の auto ポリシー)
-- [ ] Connect RPC API の整備(CLI も同 API 経由に移行)
-- [ ] Web UI: 環境ダッシュボード・昇格ボタン・履歴表示
-- [ ] 承認ゲート(prod 昇格に approve 必須)
-- [ ] Slack / webhook 通知
-- [ ] コンテナ状態詳細(リビジョンステータス・トラフィック配分・Console へのディープリンク)
+## v1.0: safe hosted operation
 
-## Phase 3 — プログレッシブデリバリー(本当の差別化)
+- [ ] wire remote Git clone/fetch into the controller
+- [ ] authenticate and authorize Web and RPC requests
+- [ ] route remote CLI operations through Connect RPC
+- [ ] add shared durable audit and approval storage
+- [ ] add production approval gates
+- [ ] add Slack and generic webhook notifications
+- [ ] complete a multi-principal, multi-instance, real-GCP acceptance test
 
-- [ ] トラフィック分割によるカナリアリリース(10% → 50% → 100%)
-- [ ] リビジョンタグ付きプレビュー URL(トラフィック 0% での事前確認)
-- [ ] Cloud Monitoring 連動の自動ロールバック
+## After v1.0
 
-## リリース前チェックリスト(初日〜早期にやること)
+- [ ] import unmanaged Cloud Run services into manifests
+- [ ] select Artifact Registry digests through a Git commit or PR
+- [ ] progressive traffic rollout
+- [ ] revision-tag preview URLs
+- [ ] smoke-test and metric-driven automatic rollback
+- [ ] event-driven development manifest updates
 
-- [x] 名前決定: **Wataridori**
-- [ ] GitHub リポジトリ作成(`github.com/<you>/wataridori`)
-- [ ] ドメイン確保の検討(`wataridori.dev` / `wataridori.io` — 2026-07-06 時点で両方未登録)
-- [ ] LICENSE(Apache-2.0)・CONTRIBUTING.md・Code of Conduct
+## Release policy
+
+A milestone is complete only when its implementation, tests, documentation, and
+real-GCP acceptance evidence agree. A checked design task is not a substitute
+for a published, reproducible release.
