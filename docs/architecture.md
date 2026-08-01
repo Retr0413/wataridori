@@ -1,94 +1,131 @@
-# アーキテクチャ
+# Architecture
 
-## 全体像
+## Overview
 
-詳細な昇格・apply・rollback・controller の流れは
-[system-flow.md](system-flow.md) にまとめる。
-Wataridori の基本概念と用語は
-[concepts-and-glossary.md](concepts-and-glossary.md) にまとめる。
-GitOps を維持した Cloud Run 管理機能の拡張方針は
-[gitops-cloudrun-management.md](gitops-cloudrun-management.md) にまとめる。
+```mermaid
+flowchart LR
+    CLI["CLI"] --> Core["Core use cases"]
+    Web["React Web UI"] --> RPC["Connect RPC server"]
+    RPC --> Core
+    Controller["Controller"] --> Core
 
-```
-┌─ Web UI (TypeScript / React) ──┐
-│  環境一覧・昇格ボタン・承認・   │
-│  デプロイ履歴・トラフィック操作  │
-└──────────┬──────────────────────┘
-           │ Connect RPC (gRPC 互換, ブラウザ直結可)
-┌──────────▼──────────────────────┐
-│  API Server + Controller (Go)   │  ← 単一バイナリに同居
-│  - Git リポジトリの poll/webhook │
-│  - Reconcile loop               │
-│  - 昇格 = Git への commit/PR     │
-└───┬──────────────┬──────────────┘
-    │ Cloud Run    │ Artifact Registry
-    │ Admin API v2 │ (digest 解決・コピー)
+    Core --> Git["Git manifests<br/>desired state"]
+    Core --> Run["Cloud Run Admin API<br/>actual state"]
+    Core --> Registry["Artifact Registry<br/>digest copy"]
+    Core --> Store["History store<br/>auxiliary records"]
+
+    WebAssets["Vite build"] --> Binary["Single Go binary"]
+    RPC --> Binary
+    Controller --> Binary
+    CLI --> Binary
 ```
 
-## 設計原則
+Detailed command and controller sequences are documented in
+[system-flow.md](system-flow.md). Terms are defined in
+[concepts-and-glossary.md](concepts-and-glossary.md).
 
-### 単一バイナリ
+## Design principles
 
-Argo CD が重い理由の一つはコンポーネント分割。Wataridori はサーバ・コントローラ・CLI を
-1つの Go バイナリに同居させ、**Cloud Run に自分自身をデプロイして動く CD ツール**にする。
-導入障壁を劇的に下げることが OSS としての採用に直結する。
+### One binary
 
-### 真実の所在
+The CLI, Connect RPC server, controller foundation, and embedded Web UI ship in
+one Go binary. Wataridori can therefore run locally or as a Cloud Run service
+without operating a separate frontend deployment or control plane.
 
-- **あるべき状態**: Git 上のマニフェスト(GitOps)
-- **実際の状態**: Cloud Run Admin API から取得
-- **DB は補助のみ**: 履歴・承認記録用の SQLite(将来的に Firestore オプション)。状態の真実は DB に置かない
+### Two sources of truth
 
-### 認証
+- **Desired state:** Git manifests
+- **Actual state:** Cloud Run Admin API
 
-- GCP 側: Workload Identity / Application Default Credentials(ADC)
-- UI 側: IAP または OIDC
+The history database is auxiliary. It must never become the authoritative
+source for the current image, revision, or traffic allocation.
 
-## 技術スタック
+### Immutable promotion
 
-| 層 | 選定 | 理由 |
-|---|---|---|
-| Cloud Run 操作 | `cloud.google.com/go/run/apiv2` | 公式クライアント。Knative 形式 YAML より proto ベースの v2 API が扱いやすい |
-| イメージ操作 | [`go-containerregistry`](https://github.com/google/go-containerregistry) | digest 解決・レジストリ間コピー(crane のライブラリ) |
-| Git 操作 | `go-git` + GitHub/GitLab API | 昇格 PR の作成に必要 |
-| API | Connect RPC (`connectrpc.com/connect`) | proto 定義から Go サーバと TypeScript クライアントを両方生成。型共有問題が消える |
-| CLI | `cobra` | UI と同じ API を叩く CLI を提供 |
-| フロント | React + Vite + TanStack Query | Connect の生成クライアントと相性が良い。成果物は Go バイナリに `embed` |
-| ストア | SQLite | 履歴・承認記録用。導入の軽さを優先 |
+An environment manifest references an image with `@sha256:...`. Promotion
+copies that digest into the target manifest. If the target uses another
+Artifact Registry repository, Wataridori copies the content by digest and keeps
+the target repository path.
 
-## リポジトリ構成(モノレポ)
+### Plan before mutation
 
-```
-/cmd/wataridori/      # main() のみ
-/internal/
-  cli/                # cobra コマンド層(フラグ処理・表示のみ。ロジックを持たない)
-  core/               # ユースケース層(apply / promote / rollback / status の手順)
-  manifest/           # マニフェスト YAML の型・loader・validator
-  controller/         # reconcile loop(Phase 2)
-  cloudrun/           # Admin API ラッパ
-  registry/           # digest 解決・イメージコピー
-  gitops/             # Git 監視・昇格 PR 作成
-  store/              # SQLite
-/proto/               # Connect RPC 定義(API の単一ソース、Phase 2〜)
-/web/                 # TypeScript フロント(Phase 2〜)
-/docs/                # 設計ドキュメント・quickstart
-/examples/            # サンプルのマニフェストリポジトリ
-```
+Apply, promotion, and rollback calculate structured plans. CLI confirmation and
+the Web UI display those plans before calling the execution operation.
 
-依存方向は一方通行: `cli → core → 下位パッケージ`(Phase 2 で `server → core` が並ぶ)。
-core の Request/Result 型は構造化データとして定義し、表示は cli 層・シリアライズは
-API 層の責務とする。これにより CLI と Web UI が同一のユースケース実装を共有する。
+## Components
 
-## Cloud Run 特化で活きる設計ポイント
+| Component | Responsibility |
+|---|---|
+| `cmd/wataridori` | Process entrypoint |
+| `internal/cli` | Cobra commands, flags, confirmation, and rendering |
+| `internal/core` | Apply, promotion, rollback, status, inventory, history, and timeline use cases |
+| `internal/manifest` | YAML types, loading, validation, and digest updates |
+| `internal/cloudrun` | Cloud Run Admin API v2 wrapper |
+| `internal/registry` | Digest-based registry copy |
+| `internal/gitops` | Commits and remote Git synchronization primitives |
+| `internal/store` | Local SQLite operation history |
+| `internal/server` | Connect RPC handlers and protobuf conversion |
+| `internal/controller` | Periodic and triggered reconciliation |
+| `proto` | API contract and generated-code input |
+| `web` | React UI, generated client, and embedded build output |
 
-1. **リビジョンベースのロールバック** — Cloud Run はリビジョンを保持しているため、K8s と違い「前リビジョンへトラフィック 100% を戻す」が API 一発
-2. **トラフィック分割** — `traffic` フィールドの段階更新でカナリア / Blue-Green をネイティブ実装できる(将来対応)
-3. **リビジョンタグ付き URL** — 昇格前に prod でタグ URL(トラフィック 0%)を発行して動作確認(将来対応)
+Dependencies point toward `internal/core`; UI and CLI rendering do not belong in
+the use-case layer.
 
-## OSS としての実務
+## API
 
-- ライセンス: **Apache-2.0**(Argo / PipeCD と同じ。企業採用されやすい)
-- 配布: `goreleaser` でバイナリ + コンテナイメージ
-- CI: GitHub Actions(lint / test / release)
-- ドキュメント: アーキ図 + 3 分 quickstart を README に。設計思想は docs/ に残す
-- 競合調査: アーカイブ済みの [cloud-run-release-manager](https://github.com/GoogleCloudPlatform/cloud-run-release-manager) や PipeCD の Cloud Run 対応を調査し、「なぜ既存では駄目か」を README で明文化する
+[`proto/wataridori/v1/wataridori.proto`](../proto/wataridori/v1/wataridori.proto)
+is the API's single source of truth. Buf generates:
+
+- Go protobuf and Connect handlers in `gen/`
+- TypeScript protobuf and service descriptors in `web/src/gen/`
+
+The browser uses the Connect protocol. JSON and binary protobuf are transport
+choices; the protobuf schema defines the contract in both cases.
+
+## Cloud Run integration
+
+Wataridori uses `cloud.google.com/go/run/apiv2`.
+
+- Updating a service creates a Cloud Run revision.
+- Status compares the serving revision's digest with Git.
+- Rollback changes traffic to a previous ready revision.
+- Timeline reads revision history from Cloud Run, independently from the local
+  Wataridori activity database.
+
+Full log and metric rendering is intentionally delegated to Google Cloud
+Console deep links.
+
+## Authentication boundaries
+
+GCP access uses Application Default Credentials locally and should use a
+dedicated service account through Workload Identity on Cloud Run.
+
+Application-level Web and RPC authentication is not implemented yet. The
+planned hosted model is IAP or OIDC plus request-level authorization and a
+human principal recorded in the audit history.
+
+## Hosted-state limitation
+
+SQLite works for a local single-process workflow. A Cloud Run filesystem is
+ephemeral, and multiple instances do not share one SQLite file. Hosted
+multi-user operation therefore requires a durable shared history and approval
+store before v1.0.
+
+## Technology
+
+| Layer | Technology |
+|---|---|
+| Backend and CLI | Go, Cobra |
+| Cloud Run | Cloud Run Admin API v2 |
+| Registry | go-containerregistry |
+| Git | go-git |
+| API | Connect RPC and protobuf |
+| Web | TypeScript, React, Vite, TanStack Query |
+| Local history | SQLite |
+| Build and release | GitHub Actions, Buf, GoReleaser, ko |
+
+## Distribution
+
+GoReleaser builds Linux and macOS binaries for amd64 and arm64, checksums, and
+a distroless GHCR image. No stable release has been published yet.
