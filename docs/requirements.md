@@ -1,103 +1,137 @@
-# 機能要件
+# Requirements
 
-Wataridori の機能要件を優先度別に定義する。**やらないこと(対象外)も要件の一部**として明記する。
+This document defines Wataridori's product scope. Non-goals are requirements:
+features listed as out of scope must not be added implicitly.
 
-## 優先度サマリ
+## Priority summary
 
-| 優先度 | 機能 |
+| Priority | Capability |
 |---|---|
-| **MVP 必須** | 環境ごとの更新ポリシー、digest ベースの昇格、ロールバック、現在状態一覧、デプロイ履歴、CLI |
-| **v1.0** | Web UI での可視化、コンテナ状態詳細、承認ゲート、通知 |
-| **将来** | カナリア/トラフィック分割、メトリクス連動の自動ロールバック |
-| **対象外** | CI(イメージビルド)、Cloud Run 以外のランタイム、メトリクス/ログの本格表示 |
+| MVP | Environment policies, digest promotion, rollback, status, history, CLI |
+| v1.0 | Operational Web UI, detailed service state, authentication, approvals, notifications |
+| Future | Progressive delivery and metric-driven automatic rollback |
+| Out of scope | Image builds, non-Cloud Run runtimes, full log and metric views |
 
----
+## MVP
 
-## MVP 必須
+### Environment update policies
 
-### 1. 環境ごとの更新ポリシー
+Every environment chooses one update policy:
 
-各環境(dev / staging / prod)に対して更新ポリシーを選択できる。
+- `auto`: an eligible Git change may be reconciled automatically
+- `manual`: only an explicit promotion or apply may update the environment
 
-- **自動追従(auto)**: 指定ブランチへの push をトリガーに環境が更新される(例: dev 環境 = develop ブランチ追従)
-- **手動昇格(manual)**: 明示的な昇格操作でのみ更新される(例: prod 環境)
+Policies belong to environments. If every environment is automatic, there is no
+meaningful promotion boundary.
 
-> 両環境とも自動追従にすると「昇格」の概念が消えるため、ポリシーは環境単位の設定とする。
+### Digest-based promotion
 
-### 2. digest ベースの昇格(promote)
+Promotion copies the source environment's image digest into the target
+environment's manifest.
 
-- 昇格 = 昇格元環境のマニフェストにある**イメージ digest** を昇格先環境のマニフェストへ書き写す操作
-- タグ(`:latest`, `:v1.2`)ではなく digest を使うことで「dev で動いていたものと bit 単位で同じもの」を保証する
-- 昇格は Git への commit / PR として記録される(GitOps)
-- dev / prod で Artifact Registry のリポジトリ(GCP プロジェクト)が分かれている構成では、digest 指定でのイメージコピーに対応する
+- Tags such as `latest` and `v1.2` are rejected as deployment references.
+- The promoted artifact is bit-for-bit identical to the verified source image.
+- Promotion creates a Git commit; PR-based promotion is planned.
+- If environments use separate Artifact Registry repositories, Wataridori may
+  copy the image by digest while preserving the target repository path.
 
-### 3. ロールバック
+### Rollback
 
-- Cloud Run のリビジョン保持を活用し、「前のリビジョンにトラフィックを 100% 戻す」を 1 コマンド / 1 クリックで実行できる
-- 実装コストが低く、価値が最も高い機能。**これがない CD ツールは信用されない**ため MVP に含める
+One command or confirmed UI operation routes 100% of traffic to a previous
+ready Cloud Run revision. Users may select a revision explicitly for a single
+service.
 
-### 4. 現在状態の一覧
+### Current-state comparison
 
-- 各環境で「今どのイメージ(digest / 対応する Git コミット)が動いているか」を一覧できる
-- MVP では CLI 出力で十分。リッチな可視化は v1.0 の Web UI で行う
+Status shows which digest and revision serve in each environment and compares
+that state with Git. Services are classified as in sync, drifted, or not
+deployed.
 
-### 5. デプロイ履歴・監査ログ
+### History
 
-- 「いつ・誰が・どの digest を・どの環境に」デプロイ/昇格/ロールバックしたかを記録する
-- 可視化(4)ともロールバック(3)とも直結する。prod 運用ツールである以上、初版から必要
+Wataridori records when, who, action, environment, service, digest, and
+operation detail for apply, promotion, and rollback.
 
-### 6. CLI
+The MVP implementation uses local SQLite. Shared durable history is required
+before a hosted multi-user deployment can provide a complete audit trail.
 
-- UI と同じ API を叩く CLI を提供する
-- 想定コマンド例:
-  - `wataridori promote --from dev --to prod`
-  - `wataridori status`
-  - `wataridori rollback --env prod`
-  - `wataridori history --env prod`
-- 名前が長いため、短縮エイリアス(`wtd` など)を README で推奨する
+### CLI
 
----
+The CLI exposes:
+
+```sh
+wataridori apply --env dev
+wataridori promote --from dev --to prod
+wataridori rollback --env prod
+wataridori status
+wataridori inventory list
+wataridori history --env prod
+wataridori serve
+```
+
+The CLI currently invokes the core use cases directly. Moving remote CLI
+operations through the Connect API is v1.0 work.
 
 ## v1.0
 
-### 7. Web UI(デプロイフローの可視化)
+### Operational Web UI
 
-- 環境一覧・昇格ボタン・デプロイ履歴・現在のイメージ状態をブラウザで確認/操作できる
-- TypeScript + React。ビルド成果物は Go バイナリに embed し単一バイナリを維持する
+The embedded UI must provide:
 
-### 8. コンテナ状態の詳細表示
+- environments and services in promotion order
+- desired and actual digests
+- revision, traffic, readiness, and drift
+- promotion and rollback plans before execution
+- Cloud Run revision timeline
+- Wataridori activity history
+- inventory including unmanaged services
+- Cloud Console deep links
 
-- サービス / リビジョンのステータス(Ready / 失敗理由)
-- トラフィック配分
-- 直近のエラーログや詳細メトリクスは **Cloud Console / Cloud Logging へのディープリンク**で代替する(Console の再発明はしない)
+Most read and execution views are implemented. Authentication, authorization,
+approvals, and shared history remain.
 
-### 9. 承認ゲート
+### Authentication and authorization
 
-- prod への昇格に UI 上の承認(approve)を必須にできる
-- 承認記録は監査ログに残る
+- identify the human or workload principal for every request
+- distinguish read access, write access, and production operations
+- reject untrusted identity headers
+- retain an explicit local-development mode
 
-### 10. 通知
+### Durable audit storage
 
-- デプロイ / 昇格 / ロールバックの成功・失敗を Slack / 汎用 webhook へ通知する
+A hosted deployment must use a shared store that survives Cloud Run instance
+replacement and remains consistent across instances. The store remains
+auxiliary; Git and Cloud Run remain the sources of deployment truth.
 
----
+### Approval gates
 
-## 将来対応
+- approval may be required per environment
+- the exact reviewed plan must be fingerprinted
+- a changed plan requires new approval
+- approver and executor identities are recorded
 
-### 11. プログレッシブデリバリー
+### Notifications
 
-- Cloud Run の `traffic` フィールドを使った段階的リリース(10% → 50% → 100%)
-- カナリア / Blue-Green デプロイ
-- リビジョンタグ付きプレビュー URL(トラフィック 0% で prod 環境での事前確認)
+Slack and generic webhooks cover planned, started, succeeded, failed, rolled
+back, drifted, approval-requested, approved, and rejected events.
 
-### 12. 自動ロールバック
+## Future
 
-- Cloud Monitoring のメトリクス(エラー率など)と連動し、カナリア中に異常を検知したら自動でロールバックする
+### Progressive delivery
 
----
+- Cloud Run traffic steps such as 10%, 50%, and 100%
+- canary and blue-green operation
+- revision-tag preview URLs with zero production traffic
 
-## 対象外(Non-goals)
+### Automatic rollback
 
-- **CI(イメージビルド)**: ビルドは GitHub Actions 等に任せる。Wataridori は「ビルド済みイメージの配送」のみを扱う
-- **Cloud Run 以外のランタイム**: GKE / Compute Engine 等は明確にスコープ外。Cloud Run 特化が PipeCD 等との差別化そのもの
-- **メトリクス・ログの本格表示**: Cloud Console へのリンクで代替する
+HTTP smoke tests or Cloud Monitoring signals may stop a rollout and restore the
+previous revision.
+
+## Non-goals
+
+- building container images
+- GKE, Compute Engine, ECS, Lambda, or other runtimes
+- full Cloud Logging or Cloud Monitoring interfaces
+- a complex multi-tenant control plane before v1.0
+- a plugin platform
