@@ -1,248 +1,277 @@
-# Phase 1 詳細仕様 — CLI MVP
+# Phase 1 specification: CLI MVP
 
-[requirements.md](../requirements.md) の MVP 必須機能を、実装可能なレベルまで詳細化する。
-スコープは [roadmap.md](../roadmap.md) の Phase 1 と一致する。**ここに書いていないものは Phase 1 ではやらない。**
+This document defines the Phase 1 manifest and CLI contract. Later server and
+UI features reuse these core operations.
 
-## 前提と全体像
+## Operating model
 
-- Phase 1 はサーバ/コントローラなしの **CLI 単体**。ユーザーはマニフェストリポジトリの
-  working copy 内で `wataridori` を実行する
-- あるべき状態 = リポジトリ内のマニフェスト、実際の状態 = Cloud Run Admin API(v2)からの取得値
-- 認証は GCP の Application Default Credentials(ADC)のみ。独自の認証機構は持たない
-- Phase 1 での「昇格の記録」の一次ソースは **Git の commit そのもの**。SQLite はローカルの
-  操作履歴(いつ・誰が・何を実行したか)の補助記録
+- The user runs Wataridori from a manifest Git checkout.
+- Git manifests are desired state.
+- Cloud Run Admin API v2 is actual state.
+- ADC provides GCP credentials.
+- Promotion creates a local Git commit.
+- SQLite records local auxiliary history.
 
-```
-マニフェストリポジトリ(ユーザー管理)
-├── wataridori.yaml            # 環境定義(リポジトリルート)
+```text
+manifest-repository/
+├── wataridori.yaml
 └── environments/
     ├── dev/
-    │   └── my-app.yaml        # サービスマニフェスト(1 ファイル = 1 サービス)
+    │   └── my-app.yaml
     └── prod/
         └── my-app.yaml
 ```
 
-## 1. マニフェスト YAML スキーマ
+## 1. Manifest schema
 
-### 1.1 `wataridori.yaml`(環境定義)
+### 1.1 Repository configuration
 
 ```yaml
 version: 1
 environments:
   dev:
-    policy: auto                # auto | manual
-    branch: develop             # policy: auto のとき必須(Phase 1 では検証のみ、追従は Phase 2)
+    policy: auto
+    branch: develop
     gcp:
       project: my-app-dev
       region: asia-northeast1
-    services: environments/dev  # サービスマニフェストを置くディレクトリ(リポジトリルート相対)
+    services: environments/dev
   prod:
     policy: manual
-    promoteFrom: dev            # 昇格元環境。--from 省略時のデフォルト
+    promoteFrom: dev
     gcp:
       project: my-app-prod
       region: asia-northeast1
     services: environments/prod
-    imageCopy:                  # 環境ごとに Artifact Registry が分かれている場合のみ指定
+    imageCopy:
       to: asia-northeast1-docker.pkg.dev/my-app-prod/images
 ```
 
-バリデーションルール:
+Validation:
 
-- `version` は `1` のみ受理
-- `policy: auto` の環境には `branch` 必須
-- `policy: manual` の環境には `promoteFrom` を推奨(なければ `promote` 時に `--from` 必須)
-- 全環境が `auto` の構成は warning(昇格の概念が消えるため)
+- `version` must be `1`
+- `policy` is `auto` or `manual`
+- an automatic environment declares `branch`
+- `services` stays inside the repository root
+- an all-automatic configuration emits a warning
+- `promoteFrom` must name another environment
+- promotion relationships must not contain cycles
 
-### 1.2 サービスマニフェスト(環境ディレクトリ内、1 ファイル = 1 サービス)
-
-Knative YAML ではなく、Cloud Run Admin API v2 の `Service` proto に素直にマップする独自の最小スキーマ。
+### 1.2 Service manifest
 
 ```yaml
 name: my-app
-cloudRunName: my-app-dev # 省略可(デフォルト: name)
-image: asia-northeast1-docker.pkg.dev/my-app-dev/images/my-app@sha256:abc123...
+cloudRunName: my-app-prod
+image: asia-northeast1-docker.pkg.dev/my-app-prod/images/my-app@sha256:...
 env:
   - name: LOG_LEVEL
-    value: debug
-  - name: JWT_SECRET       # Secret Manager 参照
-    secret: my-app-jwt-secret-dev
-    version: latest        # 省略可(デフォルト latest)
+    value: info
+  - name: JWT_SECRET
+    secret: my-app-jwt-secret
+    version: latest
 resources:
   cpu: "1"
   memory: 512Mi
 scaling:
   min: 0
   max: 10
-serviceAccount: my-app@my-app-dev.iam.gserviceaccount.com
-concurrency: 80          # 省略可
-port: 8080               # 省略可(デフォルト 8080)
+serviceAccount: my-app@my-app-prod.iam.gserviceaccount.com
+concurrency: 80
+port: 8080
 ```
 
-バリデーションルール:
+`name` is the cross-environment logical identity. `cloudRunName` is the
+physical Cloud Run service name and defaults to `name`.
 
-- `image` は **digest 参照(`@sha256:`)のみ受理**。タグ参照はエラー
-  (初回セットアップ用に `wataridori resolve` 的な補助は Phase 1 ではやらない。
-  digest の初期値はユーザーが `crane digest` 等で書く。README に手順を書く)
-- Cloud Run へ渡る名前(`cloudRunName`、省略時は `name`)は Cloud Run の
-  service 名の規則(小文字英数字とハイフン、先頭は英字、63 文字以内)を満たすこと
-- `env` の 1 要素は `value` か `secret` のどちらか一方。両方指定はエラー。
-  `secret` なしの `version` もエラー。`name` の重複もエラー
-- 上記以外のフィールド(VPC / volumes / CPU always-allocated 等)は未対応。
-  追加は Issue で判断
+Rules:
 
-#### `name` と `cloudRunName` の役割分担(Phase 2 で追加)
+- `name` is required and unique within the environment
+- `image` is required and must contain a valid digest
+- mutable tag-only references are rejected
+- environment entries use exactly one of `value` or `secret`
+- ports, concurrency, scaling, CPU, and memory must be valid
+- service paths may not escape the configured service directory
 
-- `name` は**環境をまたいだサービスの同一性**。`promote` はこの名前で昇格元と
-  昇格先を対応付け、UI は Pipeline / Timeline の行をこの名前でまとめる
-- `cloudRunName` は**その環境の Cloud Run service 名**。Cloud Run API を叩く
-  ときだけ使う
+Apply is declarative for supported fields. Environment variables omitted from
+the manifest are removed. Selected unsupported or platform-managed Cloud Run
+fields are preserved to avoid destructive updates.
 
-1 プロジェクト内に `my-app-dev` / `my-app-prod` を並べる構成では、service 名に
-環境が埋まっているため環境間で共通の名前が存在せず、`name` だけでは昇格の
-対応付けができない。`name: my-app` + `cloudRunName: my-app-dev` と書き分けることで、
-Cloud Run 側の命名を変えずに昇格できる。
+## 2. Commands
 
-#### secret 参照の env(Phase 2 で追加)
+Every command supports:
 
-`apply` は service を**全置換**する(§2.1)。したがってマニフェストに書かれて
-いない env は、実際の Cloud Run から消える。Secret Manager 参照の env を
-マニフェストで表現できないと、apply が secret を落として service を壊す。
-`secret` はこの事故を防ぐために必要な最小のフィールドとして追加した。
+- `--repo`: manifest repository root
+- `--json`: structured output
+- `--db`: history database path
 
-secret の**値**は Cloud Run が実行時に解決する。Wataridori は参照だけを扱い、
-値を読むことも Git に書くこともない。
+### 2.1 Apply
 
-### 1.3 昇格のセマンティクス(最重要の設計判断)
-
-- 昇格で書き写すのは **image の digest 部分だけ**。イメージパス(レジストリ/リポジトリ名)は
-  昇格先マニフェストのものを維持する(`imageCopy` 構成では環境ごとにパスが異なるため)
-- `env` / `resources` / `scaling` 等の設定値は**書き写さない**。これらは環境固有の設定であり、
-  変更したければ各環境のマニフェストを直接編集して `apply` する
-
-## 2. コマンド仕様
-
-共通フラグ: `--repo <path>`(マニフェストリポジトリのルート。デフォルト: カレントから上方探索で
-`wataridori.yaml` を見つける)、`--json`(機械可読出力)
-
-終了コード: `0` 成功 / `1` エラー / `2` ドリフト検知(`status --check` のみ)
-
-### 2.1 `wataridori apply --env <env> [--service <name>] [--dry-run] [--force]`
-
-マニフェストどおりに Cloud Run へデプロイする。
-
-1. マニフェストを読み込み・検証する
-2. 対象サービスごとに Cloud Run の現状を取得する
-3. **保護チェック**: 実サービスに、マニフェストで表現できない設定があれば
-   デフォルトでは apply を中止する(下記)
-4. 差分があれば `UpdateService`(なければ `CreateService`)
-5. 新リビジョンが Ready になるまで待機(タイムアウト: `--timeout`、デフォルト 5 分)
-6. 結果(サービス名・リビジョン名・digest)を出力し、SQLite に履歴を記録する
-
-- `--dry-run`: 差分(現状 → あるべき状態)の表示のみ。API の書き込みは行わない
-- `--force`: 保護チェックを無視して apply する
-- 失敗時: Cloud Run 側のエラー(Ready にならない理由)をそのまま表示する。自動ロールバックはしない(将来対応)
-
-#### 保護チェック(Phase 2 で追加)
-
-apply は service を**全置換**する。マニフェストのスキーマは意図的に小さいため、
-Terraform や gcloud で作られた service には、マニフェストに書けない設定
-(startup / liveness probe、request timeout、VPC access、volumes、サイドカー、
-CPU throttling など)が付いていることがある。そのまま apply すると、**それらが
-黙って消える**。
-
-そこで apply の前に実サービスを読み、マニフェストで表現できない設定が
-見つかった場合はエラーで中止する。`--dry-run` は中止せず警告として表示する。
-
-意図的に消す場合、または設定を Terraform 側の管理に移した場合は `--force` を使う。
-`--force` でも消える設定の一覧は出力する(黙って消さない)。
-
-### 2.2 `wataridori promote --to <env> [--from <env>] [--service <name>] [--yes]`
-
-昇格元マニフェストの digest を昇格先マニフェストへ書き写し、commit を作る。
-
-1. `--from` 省略時は昇格先の `promoteFrom` を使う
-2. 昇格先が `policy: auto` の場合はエラー(自動追従環境への手動昇格は矛盾)
-3. 対象サービスごとに from/to の digest を比較し、差分を表示して確認プロンプト(`--yes` でスキップ)
-4. `imageCopy` が設定されていれば、go-containerregistry で **digest 指定のイメージコピー**を
-   先に実行する(コピー後の digest が一致することを検証)
-5. 昇格先マニフェストの digest を書き換え、規約化されたメッセージで **git commit を作成する**
-   (例: `promote(prod): my-app to sha256:abc123 (from dev)`)
-6. **push / PR 作成はしない**。ユーザーが自分のフローで push する(CI 連携・PR 化は Phase 2)
-7. commit ID と共に SQLite に履歴を記録する
-
-- working tree が dirty な場合(対象ファイル以外に変更がある場合)はエラーにして安全側に倒す
-- 差分がない(既に同じ digest)場合はその旨を表示して正常終了
-- **注意: promote はマニフェストを書き換えるだけで、デプロイはしない。** 反映は commit 後の
-  `apply --env prod`(または Phase 2 のコントローラ)が行う。この分離が GitOps の核
-
-### 2.3 `wataridori rollback --env <env> [--service <name>] [--yes]`
-
-Cloud Run のリビジョン保持を使い、前リビジョンへトラフィックを 100% 戻す。
-
-1. 対象サービスのリビジョン一覧を取得し、現在 100% を受けているリビジョンの直前の Ready な
-   リビジョンを特定する(`--revision <name>` で明示指定も可)
-2. 対象リビジョンと digest を表示して確認プロンプト
-3. `traffic` を対象リビジョン 100% に更新する
-4. SQLite に履歴を記録する
-
-- **rollback は Cloud Run 上の操作のみで、マニフェストは書き換えない。** 結果として
-  マニフェストと実態がずれる(ドリフト)。コマンド完了時に
-  「マニフェストは古い digest のままです。恒久化するにはマニフェストを更新してください」と警告を出す。
-  `status` はこのドリフトを表示する
-- 戻れる Ready リビジョンがなければエラー
-
-### 2.4 `wataridori status [--env <env>] [--check]`
-
-環境 × サービスの「あるべき状態(Git)」と「実際の状態(Cloud Run)」を突き合わせて一覧する。
-
-```
-ENV   SERVICE  DESIRED (manifest)  ACTUAL (Cloud Run)  REVISION        STATUS
-dev   my-app   sha256:abc123…      sha256:abc123…      my-app-00042    ✓ in sync
-prod  my-app   sha256:def456…      sha256:9999ff…      my-app-00017    ✗ drift
+```sh
+wataridori apply --env dev
+wataridori apply --env prod --service my-app
+wataridori apply --env prod --dry-run
 ```
 
-- `--check`: ドリフトがあれば終了コード `2`(CI での検証用)
-- Cloud Run 側にサービスが存在しない場合は `not deployed` と表示する
+Algorithm:
 
-### 2.5 `wataridori history [--env <env>] [--limit N]`
+1. load and validate repository configuration
+2. select the environment and optional service
+3. read the current Cloud Run service
+4. calculate create, update, or no-op
+5. stop here for dry run
+6. update Cloud Run using the digest-pinned image
+7. wait for a ready revision until timeout
+8. record one history entry per service
 
-SQLite に記録した操作履歴を新しい順に表示する。
+The default readiness timeout is five minutes and may be overridden.
 
-```
-TIME              ACTOR           ACTION    ENV   SERVICE  DIGEST          DETAIL
-2026-07-07 10:12  arima@…         promote   prod  my-app   sha256:abc123…  from dev, commit 1a2b3c
-2026-07-07 09:58  arima@…         apply     dev   my-app   sha256:abc123…  revision my-app-00042
-```
+### 2.2 Promote
 
-## 3. 履歴ストア(SQLite)
-
-- 置き場所: `~/.local/share/wataridori/history.db`(`--db` / `WATARIDORI_DB` で変更可)
-- Phase 1 ではローカル記録。チーム共有の監査ログは Phase 2 のサーバで実現する(Git の commit
-  履歴が promote の一次記録なので、Phase 1 でもチームで最低限の追跡は可能)
-
-```sql
-CREATE TABLE history (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  ts         TEXT NOT NULL,               -- RFC3339
-  actor      TEXT NOT NULL,               -- ADC の principal(取得できなければ OS ユーザー)
-  action     TEXT NOT NULL,               -- apply | promote | rollback
-  env        TEXT NOT NULL,
-  service    TEXT NOT NULL,
-  digest     TEXT NOT NULL,
-  detail     TEXT                          -- JSON(commit ID, from env, revision 名など)
-);
+```sh
+wataridori promote --to prod
+wataridori promote --from dev --to prod --service my-app
+wataridori promote --to prod --yes
 ```
 
-## 4. 受け入れ基準(Phase 1 完了の定義)
+Algorithm:
 
-examples/ のサンプルリポジトリと実 GCP プロジェクト 2 つ(dev / prod)を使い、以下が通ること:
+1. resolve source from `--from` or target `promoteFrom`
+2. match services by logical name
+3. read source and target digest references
+4. plan target changes and any registry copy
+5. request confirmation unless `--yes`
+6. copy source content to the target repository when configured
+7. update only the target manifest image
+8. create one Git commit for all changed manifests
+9. record promotion history
 
-1. `apply --env dev` で新規サービスが作成され、Ready になる
-2. dev のマニフェストの digest を更新 → `apply --env dev` で新リビジョンがデプロイされる
-3. `promote --to prod` で prod マニフェストに digest が書き写され、commit が作られる
-   (AR 分離構成ではイメージコピーも行われる)
-4. `apply --env prod` で prod に同一 digest がデプロイされる
-5. `rollback --env prod` で前リビジョンにトラフィックが戻り、`status` がドリフトを表示する
-6. `history` に上記の全操作が記録されている
-7. README の quickstart どおりに新規ユーザーが 10 分以内に 1〜4 を再現できる
+Promotion rejects:
+
+- an automatic target environment
+- the same source and target
+- a missing source service or digest
+- a dirty tracked target manifest
+- unrelated tracked changes that would make the commit unsafe
+
+No-op promotion does not create a commit.
+
+Phase 1 does not push or create a PR. The caller pushes the commit. PR-based
+promotion is planned for `v0.1.0`.
+
+### 2.3 Rollback
+
+```sh
+wataridori rollback --env prod
+wataridori rollback --env prod --service my-app
+wataridori rollback --env prod --service my-app --revision my-app-00042
+```
+
+Algorithm:
+
+1. list revisions for selected services
+2. identify the current serving revision
+3. select the previous ready revision, or validate the explicit revision
+4. display current and target image/revision
+5. request confirmation
+6. route 100% of service traffic to the target revision
+7. record rollback history
+
+An explicit revision requires a single service. A failed or non-ready revision
+is never selected automatically.
+
+Rollback does not edit Git. Status may therefore report drift afterward.
+
+### 2.4 Status
+
+```sh
+wataridori status
+wataridori status --env prod
+wataridori status --check
+```
+
+For every manifest service:
+
+- read the serving Cloud Run revision
+- normalize image references
+- compare desired and actual digest
+- include revision, traffic, readiness, URLs, and state
+
+States:
+
+- `in sync`
+- `drift`
+- `not deployed`
+
+`--check` exits 0 when all services are in sync and 2 when drift or a missing
+deployment exists.
+
+### 2.5 History
+
+```sh
+wataridori history
+wataridori history --env prod --limit 20
+```
+
+Entries are newest first and include:
+
+- timestamp
+- actor
+- action
+- environment
+- service
+- digest
+- structured detail
+
+### 2.6 Inventory
+
+```sh
+wataridori inventory list
+wataridori inventory list --env prod
+```
+
+Inventory lists configured Cloud Run locations and classifies managed,
+unmanaged, missing, in-sync, and drifted services. It is read-only.
+
+### 2.7 Serve
+
+```sh
+wataridori serve \
+  --repo /path/to/manifests \
+  --addr 127.0.0.1:8080
+```
+
+Serve exposes the Connect API and embedded Web UI. `--reconcile` enables the
+controller against the current local checkout.
+
+The current server has no application-level authentication. It must not be
+exposed directly to an untrusted network.
+
+## 3. History schema
+
+The SQLite schema is private implementation detail, but its logical record is:
+
+```text
+id, timestamp, actor, action, environment, service, digest, detail
+```
+
+Opening the store is idempotent. The default path can be overridden with
+`--db` or `WATARIDORI_DB`.
+
+SQLite is local process history, not a durable hosted audit database.
+
+## 4. Acceptance criteria
+
+Phase 1 is accepted when:
+
+1. valid and invalid manifests are covered by tests
+2. apply creates and updates a digest-pinned Cloud Run service
+3. promotion copies the exact digest and creates the expected commit
+4. split-registry promotion preserves the target path and digest
+5. rollback restores a previous ready revision
+6. status detects in-sync, drifted, and missing services
+7. history records every successful mutation
+8. JSON output is machine readable
+9. confirmation and dry-run paths perform no mutation
+10. the end-to-end procedure in
+    [cloudrun-cli-verification.md](../cloudrun-cli-verification.md) succeeds
+    against a release candidate
