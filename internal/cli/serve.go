@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 
 	"github.com/Retr0413/wataridori/internal/cloudrun"
 	"github.com/Retr0413/wataridori/internal/controller"
@@ -118,9 +116,13 @@ func runServe(cmd *cobra.Command, g *globalFlags, opts serveOptions) error {
 		})
 	}
 
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
 	httpSrv := &http.Server{
 		Addr:              opts.addr,
-		Handler:           h2c.NewHandler(mux, &http2.Server{}), // gRPC over cleartext
+		Handler:           mux,
+		Protocols:         protocols,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

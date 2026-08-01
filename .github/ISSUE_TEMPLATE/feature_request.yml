@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a scoped Cloud Run delivery capability
+title: "feature: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Wataridori is intentionally limited to Cloud Run and delivery of existing digest-pinned images.
+        Read docs/requirements.md before proposing a large feature.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What Cloud Run delivery problem cannot be solved today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the CLI, API, or UI behavior and its failure cases.
+    validations:
+      required: true
+  - type: textarea
+    id: gitops
+    attributes:
+      label: GitOps and digest integrity
+      description: Explain how the proposal preserves Git desired state and immutable promotion.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Cloud Run delivery
+        - Git and promotion workflow
+        - Web UI and API
+        - Testing, documentation, or release
+    validations:
+      required: true
+  - type: checkboxes
+    id: non_goals
+    attributes:
+      label: Scope check
+      options:
+        - label: This proposal does not add image builds or a non-Cloud Run runtime.
+          required: true

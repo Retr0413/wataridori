@@ -1,22 +1,30 @@
-# proto
+# Protobuf API
 
-Connect RPC の proto 定義(API の単一ソース)。message は
-[internal/core](../internal/core) の Request/Result 型に 1:1 対応する。
+`proto/` is the single source of truth for the Connect RPC API.
 
-- `wataridori/v1/wataridori.proto` — `DeploymentService`
-  (Status / Apply / Promote / Rollback / History)
+`wataridori/v1/wataridori.proto` defines `DeploymentService`, including:
 
-## コード生成
+- environment discovery
+- status and inventory
+- apply
+- promotion plan and execution
+- rollback plan and execution
+- activity history
+- Cloud Run revision timeline
 
-生成物は [`gen/`](../gen) にコミットしている(下流パッケージが codegen なしで
-ビルドできるように)。proto を編集したら再生成すること:
+## Generate code
+
+Generated Go code is committed in `gen/`; generated TypeScript is committed in
+`web/src/gen/`.
 
 ```sh
-make tools   # 初回のみ: protoc-gen-go / protoc-gen-connect-go を導入
-make gen     # buf lint + buf generate → gen/ を更新
+make tools
+make gen
 ```
 
-CI は `make gen-check` で「コミット済みの生成物が proto と一致しているか」を検証する。
+CI runs `make gen-check` and fails if generated output is stale.
 
-設定: [`buf.yaml`](../buf.yaml)(lint / breaking)、
-[`buf.gen.yaml`](../buf.gen.yaml)(生成プラグイン)。
+Configuration:
+
+- [`buf.yaml`](../buf.yaml): lint and breaking-change policy
+- [`buf.gen.yaml`](../buf.gen.yaml): Go and TypeScript generation

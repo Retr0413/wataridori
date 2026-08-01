@@ -1,106 +1,207 @@
-# Wataridori (渡り鳥)
+# Wataridori
 
-> **Wataridori (渡り鳥, "migratory bird") — a GitOps CD tool built for Cloud Run.**
-> Your images migrate safely from dev to prod.
+> Wataridori (渡り鳥, "migratory bird") is a GitOps continuous delivery
+> tool built specifically for Google Cloud Run.
 
-Wataridori は Google Cloud Run に特化した継続的デリバリー(CD)ツールです。
-Artifact Registry のイメージを **digest ベース**で dev → prod へ「昇格」させることを核に、
-デプロイの可視化・ロールバック・履歴管理を提供します。
+Wataridori promotes an already-built container image from one environment to
+another by copying its immutable digest. The image that reaches production is
+bit-for-bit identical to the image verified in development.
 
-渡り鳥が季節(環境)を越えて確実に目的地へたどり着くように、
-検証済みのイメージだけが dev から prod へ渡っていきます。
+![Wataridori pipeline](docs/screenshots/pipeline.png)
 
-## なぜ Wataridori か
+> [!WARNING]
+> Wataridori is pre-release software and is not ready for production use.
+> `wataridori serve` does not provide application-level authentication yet.
+> Do not expose it directly to the public internet. Bind it to a trusted
+> interface or place it behind an authenticated proxy such as Google Cloud IAP.
 
-- **Argo CD は重すぎる** — Kubernetes 前提の汎用ツールで、Cloud Run だけのために運用するにはコンポーネントが多い
-- **`gcloud run deploy` を CI に書くのは脆すぎる** — 履歴なし、ロールバック手作業、「dev で動いていたものと同じ」保証なし
-- **Wataridori はその間を埋める** — 単一バイナリで動き、Cloud Run のネイティブ機能(リビジョン、トラフィック分割)を最大限活かす
+## Why Wataridori?
 
-既存の類似ツールとの違い:
-[cloud-run-release-manager](https://github.com/GoogleCloudPlatform/cloud-run-release-manager) は
-カナリア特化でアーカイブ済み(GitOps・昇格の概念がない)。PipeCD は Cloud Run に対応するが
-K8s 中心の汎用アーキテクチャで、Control Plane + Piped の運用が必要。Wataridori は
-「digest 昇格 + GitOps」だけに絞った単一バイナリで、この隙間を埋める。
+- **Cloud Run focused.** It does not require a Kubernetes cluster or a
+  multi-component control plane.
+- **Digest-based promotion.** Production receives the exact artifact tested in
+  the source environment, not whatever a mutable tag happens to reference.
+- **GitOps state.** Git manifests describe the desired state; the Cloud Run API
+  reports the actual state.
+- **Safe operations.** Apply, promotion, and rollback are planned before they
+  execute, and operations are recorded.
+- **One binary.** The CLI, Connect RPC server, controller foundation, and
+  embedded React UI ship together.
 
-## コアコンセプト
+Wataridori sits between a general-purpose CD platform and shelling out to
+`gcloud run deploy` from CI. It intentionally handles delivery of existing
+images, not image builds.
 
-1. **Git が信頼の源泉(GitOps)** — 各環境のあるべき状態は Git 上のマニフェストで宣言する
-2. **昇格 = digest の書き写し** — タグではなくイメージ digest で昇格し、「dev で動いていたものと bit 単位で同じもの」を保証する
-3. **環境ごとの更新ポリシー** — dev はブランチ自動追従、prod は手動昇格、のように環境単位で選べる
-4. **単一バイナリ** — サーバ・コントローラ・CLI を1つの Go バイナリに同居。Cloud Run 自身にデプロイして動かせる
+## Current capabilities
 
-## インストール
+### CLI
 
-[Releases](https://github.com/Retr0413/wataridori/releases) からバイナリを取得するか:
+- `apply`: create or update Cloud Run services from manifests
+- `promote`: copy image digests between environment manifests and create a Git
+  commit
+- `rollback`: route 100% of traffic to a previous ready revision
+- `status`: compare Git's desired image with the serving Cloud Run image
+- `inventory list`: classify managed and unmanaged Cloud Run services
+- `history`: inspect locally recorded apply, promote, and rollback operations
+- JSON output and a drift-aware exit code for automation
+
+### Server and Web UI
+
+- Connect RPC API generated from [`proto/`](proto/)
+- Pipeline board arranged in promotion order
+- Environment and service status, drift, revisions, traffic, and readiness
+- Promotion planning and execution
+- Rollback planning and execution
+- Cloud Run revision timeline and Wataridori activity history
+- Cloud Run inventory, including unmanaged services
+- React + Vite assets embedded in the Go binary
+
+### Not implemented yet
+
+- Authentication and authorization for the Web UI and RPC API
+- Shared, durable audit storage for a multi-instance Cloud Run deployment
+- Approval gates
+- Slack and generic webhook notifications
+- A fully wired remote Git clone/pull loop for the controller
+- Progressive delivery and automatic rollback
+
+See the [roadmap](docs/roadmap.md) for the release plan.
+
+## Install from source
+
+There is no stable release yet. Until `v0.1.0` is published, install from the
+default branch:
 
 ```sh
-go install github.com/Retr0413/wataridori/cmd/wataridori@latest
+go install github.com/Retr0413/wataridori/cmd/wataridori@master
 ```
 
-名前が長いので短縮エイリアスを推奨:
+The examples below use the full command name. You may define a local alias:
 
 ```sh
 alias wtd=wataridori
 ```
 
-## 3 分 Quickstart
+## Quickstart
 
-前提: GCP プロジェクト(dev / prod)、Artifact Registry のビルド済みイメージ、
-`gcloud auth application-default login` 済み。
+Prerequisites:
 
-**1. マニフェストリポジトリを作る** — [examples/simple](examples/simple/) をコピーして
-Git リポジトリにし、プロジェクト ID・リージョン・イメージを自分のものに書き換える。
-digest は `crane digest IMAGE:TAG` で取得(タグ参照はエラーになる):
+- Go 1.25 or later when installing from source
+- a GCP project with the Cloud Run Admin API enabled
+- an Artifact Registry image referenced by digest
+- Application Default Credentials with the required Cloud Run and Artifact
+  Registry permissions
+- a Git repository for the Wataridori manifests
 
-```
-your-manifests/
-├── wataridori.yaml            # 環境定義(dev = auto, prod = manual)
-└── environments/
-    ├── dev/hello.yaml         # image: ...@sha256:...(digest 必須)
-    └── prod/hello.yaml
-```
-
-**2. dev へデプロイ**
+Authenticate:
 
 ```sh
-wtd apply --env dev
+gcloud auth application-default login
 ```
 
-**3. prod へ昇格** — dev の digest が prod のマニフェストへ書き写され、commit が作られる。
-環境ごとに AR が分かれていればイメージコピーも自動で行われる:
+Copy [`examples/simple`](examples/simple/) into a new Git repository. Replace
+the project, region, service account, and image references with your values.
+Image references must be digest-pinned:
+
+```yaml
+image: asia-northeast1-docker.pkg.dev/my-project/images/hello@sha256:...
+```
+
+Deploy development:
 
 ```sh
-wtd promote --to prod   # プラン表示 → y/N 確認 → commit
+wataridori apply --env dev
+```
+
+Promote the verified digest to production:
+
+```sh
+wataridori promote --to prod
 git push
-wtd apply --env prod    # 昇格 = commit、デプロイ = apply(GitOps の分離)
+wataridori apply --env prod
 ```
 
-**4. 状態確認・ロールバック・履歴**
+Promotion changes Git; apply changes Cloud Run. Keeping those operations
+separate is intentional.
+
+Inspect and recover:
 
 ```sh
-wtd status              # Git(あるべき)× Cloud Run(実際)の突き合わせ
-wtd rollback --env prod # 前の Ready リビジョンへトラフィック 100% を戻す
-wtd history --env prod  # いつ・誰が・何を deploy/promote/rollback したか
+wataridori status
+wataridori inventory list
+wataridori history --env prod
+wataridori rollback --env prod
 ```
 
-## ドキュメント
+Run the local Web UI:
 
-| ドキュメント | 内容 |
+```sh
+wataridori serve --repo /path/to/manifest-repository --addr 127.0.0.1:8080
+```
+
+Open `http://127.0.0.1:8080`.
+
+## Manifest layout
+
+```text
+manifest-repository/
+├── wataridori.yaml
+└── environments/
+    ├── dev/
+    │   └── hello.yaml
+    └── prod/
+        └── hello.yaml
+```
+
+See [the example guide](examples/README.md) and
+[the Phase 1 CLI specification](docs/spec/phase1-cli.md) for the schema.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    User["CLI / Web UI"] --> Core["Wataridori core"]
+    Core --> Git["Git manifests<br/>desired state"]
+    Core --> Run["Cloud Run Admin API<br/>actual state"]
+    Core --> AR["Artifact Registry<br/>digest copy"]
+    Core --> Store["SQLite<br/>local history"]
+```
+
+The database is not a source of deployment truth. Wataridori derives state from
+Git and Cloud Run on every operation.
+
+## Documentation
+
+| Document | Purpose |
 |---|---|
-| [docs/requirements.md](docs/requirements.md) | 機能要件(MVP / v1.0 / 将来 / 対象外) |
-| [docs/architecture.md](docs/architecture.md) | アーキテクチャと技術スタック |
-| [docs/roadmap.md](docs/roadmap.md) | 開発ロードマップ(Phase 1〜3) |
-| [docs/spec/phase1-cli.md](docs/spec/phase1-cli.md) | Phase 1(CLI)の詳細仕様 |
-| [docs/naming.md](docs/naming.md) | 名前の由来と確保状況 |
+| [Requirements](docs/requirements.md) | MVP, v1.0, future scope, and non-goals |
+| [Architecture](docs/architecture.md) | Components, dependencies, and design decisions |
+| [System flows](docs/system-flow.md) | Apply, promotion, rollback, and controller flows |
+| [Concepts and glossary](docs/concepts-and-glossary.md) | GitOps and Cloud Run terminology |
+| [Roadmap](docs/roadmap.md) | Current implementation status and release plan |
+| [CLI specification](docs/spec/phase1-cli.md) | Detailed manifest and command behavior |
+| [Cloud Run acceptance test](docs/cloudrun-cli-verification.md) | Real-GCP verification procedure and results |
 
-## 技術スタック(概要)
+## Development
 
-- **バックエンド / CLI**: Go(Cloud Run Admin API v2, go-containerregistry, go-git, Connect RPC, cobra)
-- **フロントエンド**: TypeScript + React + Vite(Go バイナリに embed)
-- **ライセンス**: Apache-2.0
+```sh
+make tools
+make gen-check
+go test ./...
+npm --prefix web run typecheck
+npm --prefix web run build
+npm --prefix web run test:e2e
+```
 
-## ステータス
+Generated Go and TypeScript protobuf code is committed. Run `make gen` after
+changing the API contract.
 
-🚧 Phase 1(CLI MVP)実装中。`apply` / `promote` / `rollback` / `status` / `history` の
-5 コマンドを実装済み。実環境での受け入れテスト(spec §4)が完了し次第 v0.1.0 をリリース予定。
-Phase 2(コントローラ + Web UI)以降は [docs/roadmap.md](docs/roadmap.md) を参照。
+## Project scope
+
+Wataridori does not build container images, target runtimes other than Cloud
+Run, or reproduce Cloud Logging and Cloud Monitoring. It links to Google Cloud
+for logs and metrics.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

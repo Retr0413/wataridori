@@ -19,9 +19,6 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-
 	"github.com/Retr0413/wataridori/internal/core"
 	"github.com/Retr0413/wataridori/internal/server"
 	"github.com/Retr0413/wataridori/internal/store"
@@ -215,9 +212,13 @@ func main() {
 	mux.Handle("/", web.Handler())
 
 	fmt.Println("fakeserver listening on", *addr)
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
 	httpSrv := &http.Server{
 		Addr:              *addr,
-		Handler:           h2c.NewHandler(mux, &http2.Server{}),
+		Handler:           mux,
+		Protocols:         protocols,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	if err := httpSrv.ListenAndServe(); err != nil {

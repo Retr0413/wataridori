@@ -1,61 +1,56 @@
-# examples
+# Manifest examples
 
-Wataridori のマニフェストリポジトリのサンプル。quickstart と受け入れテストに使う。
+These directories are starting points for a separate Wataridori manifest
+repository.
 
-| ディレクトリ | 構成 |
+| Directory | Topology |
 |---|---|
-| [simple/](simple/) | dev / prod が同じ Artifact Registry を共有する最小構成 |
-| [split-registry/](split-registry/) | 環境ごとに AR が分かれ、昇格時にイメージコピーが走る構成 |
+| [`simple/`](simple/) | Development and production share one Artifact Registry repository |
+| [`split-registry/`](split-registry/) | Promotion copies the digest into a production repository |
 
-## 使い方
+## Use
 
-1. どちらかのディレクトリを自分の Git リポジトリにコピーする
-2. `wataridori.yaml` の `gcp.project` / `gcp.region` と、各サービスマニフェストの
-   `image` / `serviceAccount` を自分の環境に書き換える
-3. `image` の digest は [crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane) で取得する:
-
-   ```sh
-   crane digest asia-northeast1-docker.pkg.dev/YOUR_PROJECT/images/hello:latest
-   ```
-
-4. デプロイと昇格:
+1. Copy one directory into a new Git repository.
+2. Replace `gcp.project`, `gcp.region`, service accounts, and images.
+3. Resolve a digest:
 
    ```sh
-   wataridori apply --env dev     # dev へデプロイ
-   wataridori promote --to prod   # digest を prod マニフェストへ昇格(commit が作られる)
-   wataridori apply --env prod    # prod へデプロイ
-   wataridori status              # Git と Cloud Run の突き合わせ
+   crane digest REGION-docker.pkg.dev/PROJECT/REPOSITORY/IMAGE:TAG
    ```
 
-## 環境ごとに Cloud Run service 名が違う場合
+4. Store the immutable result as `IMAGE@sha256:...`.
+5. Run:
 
-`my-api-dev` / `my-api-prod` のように service 名へ環境を埋め込んでいる構成
-(1 プロジェクトに dev と prod を並べると起きやすい)では、`name` と
-`cloudRunName` を書き分ける。
+   ```sh
+   wataridori apply --env dev
+   wataridori promote --to prod
+   git push
+   wataridori apply --env prod
+   wataridori status
+   ```
+
+## Different physical service names
+
+Use one logical `name` across environments and set `cloudRunName` separately:
 
 ```yaml
-# environments/dev/my-api.yaml
-name: my-api             # 環境をまたいだ同一性。promote はこの名前で対応付ける
-cloudRunName: my-api-dev # 実際の Cloud Run service 名
+name: my-api
+cloudRunName: my-api-dev
 image: ...
 ```
 
-`name` を揃えないと `promote` は
-`service "my-api-prod" exists in "prod" but not in "dev"` で失敗する。
+Promotion matches `name`, not `cloudRunName`.
 
-## Secret Manager 参照の env
-
-`apply` は service を全置換するため、実際に動いている env はすべてマニフェストに
-書き切る必要がある。Secret Manager 参照は `secret` で書く。
+## Secret Manager environment variables
 
 ```yaml
 env:
   - name: LOG_LEVEL
     value: debug
   - name: JWT_SECRET
-    secret: my-api-jwt-dev   # Secret Manager の secret 名
-    version: latest          # 省略可
+    secret: my-api-jwt-dev
+    version: latest
 ```
 
-書き漏らした env は apply で Cloud Run から消える。既存の service を取り込むときは
-`gcloud run services describe <name> --format=json` で現状の env を確認してから書く。
+Apply manages the supported environment-variable set declaratively. Include
+every required value or secret reference in the manifest.
