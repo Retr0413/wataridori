@@ -1,0 +1,31 @@
+name: deliver-image-digest-to-gitops
+
+# Replace workflow_dispatch with a needs: build job in the application CI. The
+# build remains outside Wataridori and must pass the final immutable image.
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        required: true
+        type: string
+      image:
+        description: Immutable IMAGE@sha256:...
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  propose-dev:
+    uses: Retr0413/wataridori/.github/workflows/reusable-dev-update-pr.yml@master # Pin a full SHA in production.
+    with:
+      wataridori_ref: ${{ vars.WATARIDORI_SHA }}
+      manifest_owner: ${{ vars.GITOPS_REPOSITORY_OWNER }}
+      manifest_repository: ${{ vars.GITOPS_REPOSITORY_NAME }}
+      github_app_id: ${{ vars.WATARIDORI_GITHUB_APP_ID }}
+      environment: dev
+      service: ${{ inputs.service }}
+      image: ${{ inputs.image }}
+    secrets:
+      github_app_private_key: ${{ secrets.WATARIDORI_GITHUB_APP_PRIVATE_KEY }}

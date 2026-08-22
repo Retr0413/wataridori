@@ -72,6 +72,27 @@ wataridori serve
 The CLI currently invokes the core use cases directly. Moving remote CLI
 operations through the Connect API is v1.0 work.
 
+### GitHub Actions CD kit
+
+Other repositories may consume Wataridori through a setup Action and reusable
+workflows. The application CI remains responsible for building and publishing
+an image; it hands Wataridori an immutable `IMAGE@sha256:...` reference.
+
+The MVP GitHub flow is deliberately asymmetric:
+
+- a reviewed dev manifest change may apply to dev automatically
+- successful dev apply may automatically create or update a dev-to-prod
+  promotion pull request
+- automation must never merge the promotion pull request
+- creating, updating, reviewing, or merging the pull request must not apply to
+  prod
+- prod apply is started only through an explicit manual workflow dispatch and
+  a protected GitHub Environment approval
+
+The production apply workflow must not expose `--force` or accept an unmerged
+branch. GitHub-to-GCP authentication uses OIDC and Workload Identity Federation,
+not a stored service-account key.
+
 ## v1.0
 
 ### Operational Web UI
@@ -135,3 +156,4 @@ previous revision.
 - full Cloud Logging or Cloud Monitoring interfaces
 - a complex multi-tenant control plane before v1.0
 - a plugin platform
+- automatic production promotion or production apply

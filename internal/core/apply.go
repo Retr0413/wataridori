@@ -13,9 +13,10 @@ import (
 // ApplyRequest deploys the manifests of one environment.
 // See docs/spec/phase1-cli.md §2.1.
 type ApplyRequest struct {
-	Env     string `json:"env"`
-	Service string `json:"service,omitempty"` // optional filter
-	DryRun  bool   `json:"dryRun,omitempty"`
+	Env           string          `json:"env"`
+	Service       string          `json:"service,omitempty"` // optional filter
+	DryRun        bool            `json:"dryRun,omitempty"`
+	RequirePolicy manifest.Policy `json:"requirePolicy,omitempty"`
 	// Force applies even when the running service has configuration the
 	// manifest cannot express. Without it such an apply is refused, because
 	// the replacement would silently drop that configuration.
@@ -68,6 +69,9 @@ func (e *Engine) Apply(ctx context.Context, req ApplyRequest) (*ApplyResult, err
 	env, err := e.Repo.Environment(req.Env)
 	if err != nil {
 		return nil, err
+	}
+	if req.RequirePolicy != "" && env.Policy != req.RequirePolicy {
+		return nil, fmt.Errorf("environment %q uses policy %q; policy %q is required", env.Name, env.Policy, req.RequirePolicy)
 	}
 	services, err := e.services(env, req.Service)
 	if err != nil {

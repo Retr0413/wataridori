@@ -74,9 +74,14 @@ sequenceDiagram
     W->>Store: record result
 ```
 
-`--dry-run` stops after planning. Apply preserves selected Cloud Run fields that
-are not controlled by the Wataridori manifest, avoiding accidental deletion of
-platform-managed configuration.
+`--dry-run` stops after planning.
+
+Apply replaces the Cloud Run service wholesale: the manifest is the source of
+truth, so configuration it does not describe would be deleted. Apply therefore
+reads the running service first and refuses when it finds settings the manifest
+cannot express, such as probes, request timeout, VPC access, volumes, sidecars,
+or CPU throttling. `--dry-run` reports them as a warning instead of failing,
+and `--force` proceeds while still listing what it removes.
 
 ## Promotion
 
@@ -107,6 +112,35 @@ sequenceDiagram
 
 The user pushes the commit and applies the target environment. PR-based
 promotion is planned for `v0.1.0`.
+
+## GitHub Actions delivery
+
+```mermaid
+sequenceDiagram
+    participant CI as Application CI
+    participant Git as Manifest repository
+    participant Dev as Cloud Run dev
+    participant PR as Production promotion PR
+    actor Human
+    participant Prod as Cloud Run prod
+
+    CI->>Git: open dev digest update PR
+    Human->>Git: review and merge dev change
+    Git->>Dev: reusable workflow applies dev
+    Dev-->>Git: ready digest and revision
+    Git->>PR: automatically create or update promotion PR
+    Human->>PR: review and merge
+    Note over PR,Prod: merge alone never deploys prod
+    Human->>Git: manually dispatch prod apply
+    Git-->>Human: protected Environment approval
+    Human->>Git: approve
+    Git->>Prod: apply reviewed default-branch commit
+```
+
+The application CI builds and publishes the image. Wataridori accepts only its
+immutable digest. The promotion-PR workflow may prepare Git desired state but
+must never merge the PR or call prod apply. Production has no push-, PR-,
+schedule-, or workflow-completion-triggered apply path.
 
 ## Rollback
 

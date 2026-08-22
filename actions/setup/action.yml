@@ -1,0 +1,35 @@
+name: Setup Wataridori
+description: Install a pinned Wataridori CLI release and verify its checksum
+author: Wataridori
+
+inputs:
+  version:
+    description: SemVer release such as v0.1.0, or source to build this pinned Action ref
+    required: true
+  install-directory:
+    description: Destination directory; defaults to a runner temporary directory
+    required: false
+    default: ""
+
+outputs:
+  version:
+    description: Installed Wataridori version
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: Absolute path to the installed binary
+    value: ${{ steps.install.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      name: Install and verify Wataridori
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_INSTALL_DIRECTORY: ${{ inputs.install-directory }}
+      run: "$GITHUB_ACTION_PATH/install.sh"
+
+branding:
+  icon: upload-cloud
+  color: blue

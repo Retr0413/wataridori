@@ -1,0 +1,60 @@
+name: reusable-wataridori-validate
+
+on:
+  workflow_call:
+    inputs:
+      wataridori_ref:
+        description: Full 40-character Wataridori commit SHA to install
+        required: true
+        type: string
+      repo_path:
+        description: Manifest repository path after checkout
+        required: false
+        default: .
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.5
+          cache: false
+
+      - name: Install pinned Wataridori source
+        shell: bash
+        env:
+          WATARIDORI_REF: ${{ inputs.wataridori_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$WATARIDORI_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "wataridori_ref must be a full 40-character commit SHA" >&2
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/wataridori-bin"
+          GOBIN="$RUNNER_TEMP/wataridori-bin" \
+            go install "github.com/Retr0413/wataridori/cmd/wataridori@${WATARIDORI_REF}"
+          echo "$RUNNER_TEMP/wataridori-bin" >> "$GITHUB_PATH"
+
+      - name: Validate manifests
+        id: validate
+        shell: bash
+        env:
+          REPO_PATH: ${{ inputs.repo_path }}
+        run: |
+          set -euo pipefail
+          wataridori validate --repo "$REPO_PATH" --json > "$RUNNER_TEMP/wataridori-validate.json"
+          cat "$RUNNER_TEMP/wataridori-validate.json"
+          {
+            echo "### Wataridori manifest validation"
+            echo
+            jq -r '"Valid: \(.environments) environment(s), \(.services) service manifest(s)."' \
+              "$RUNNER_TEMP/wataridori-validate.json"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -146,6 +147,145 @@ func TestPromoteDeclined(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, "envs/prod/my-app.yaml"))
 	if strings.Contains(string(data), digestNew) {
 		t.Error("declined promote must not rewrite the manifest")
+	}
+}
+
+func TestValidateJSONLoadsEveryManifestWithoutMutation(t *testing.T) {
+	dir := setupRepo(t)
+	repo, err := git.PlainOpen(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := repo.Head()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := run(t, "validate", "--repo", dir, "--json")
+	if err != nil {
+		t.Fatalf("validate: %v\n%s", err, out)
+	}
+	var result struct {
+		Environments int `json:"environments"`
+		Services     int `json:"services"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("JSON output: %v\n%s", err, out)
+	}
+	if result.Environments != 2 || result.Services != 2 {
+		t.Errorf("result = %+v", result)
+	}
+	after, _ := repo.Head()
+	if before.Hash() != after.Hash() {
+		t.Error("validate must not create a commit")
+	}
+}
+
+func TestManifestSetImageUpdatesOneFileAndIsIdempotent(t *testing.T) {
+	dir := setupRepo(t)
+	image := "reg.example/app/my-app@sha256:" + strings.Repeat("c", 64)
+
+	out, err := run(t, "manifest", "set-image", "--env", "dev", "--service", "my-app", "--image", image, "--repo", dir, "--json")
+	if err != nil {
+		t.Fatalf("set-image: %v\n%s", err, out)
+	}
+	var result struct {
+		File    string `json:"file"`
+		Changed bool   `json:"changed"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.Changed || result.File != filepath.Join("envs", "dev", "my-app.yaml") {
+		t.Errorf("result = %+v", result)
+	}
+	devData, _ := os.ReadFile(filepath.Join(dir, "envs/dev/my-app.yaml"))
+	prodData, _ := os.ReadFile(filepath.Join(dir, "envs/prod/my-app.yaml"))
+	if !strings.Contains(string(devData), image) {
+		t.Errorf("dev manifest = %s", devData)
+	}
+	if strings.Contains(string(prodData), strings.Repeat("c", 64)) {
+		t.Error("set-image must not change another environment")
+	}
+
+	out, err = run(t, "manifest", "set-image", "--env", "dev", "--service", "my-app", "--image", image, "--repo", dir, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Changed {
+		t.Error("second set-image should be a no-op")
+	}
+}
+
+func TestManifestSetImageRejectsTagWithoutWriting(t *testing.T) {
+	dir := setupRepo(t)
+	path := filepath.Join(dir, "envs/dev/my-app.yaml")
+	before, _ := os.ReadFile(path)
+
+	_, err := run(t, "manifest", "set-image", "--env", "dev", "--service", "my-app", "--image", "reg.example/app/my-app:latest", "--repo", dir)
+	if err == nil || !strings.Contains(err.Error(), "not digest-pinned") {
+		t.Fatalf("error = %v", err)
+	}
+	after, _ := os.ReadFile(path)
+	if !bytes.Equal(before, after) {
+		t.Error("invalid image must not modify the manifest")
+	}
+}
+
+func TestManifestSetImageCanRequireAutoPolicy(t *testing.T) {
+	dir := setupRepo(t)
+	image := "reg.example/app/my-app@sha256:" + strings.Repeat("c", 64)
+	_, err := run(t, "manifest", "set-image", "--env", "prod", "--service", "my-app", "--image", image, "--require-policy", "auto", "--repo", dir)
+	if err == nil || !strings.Contains(err.Error(), `policy "auto" is required`) {
+		t.Fatalf("error = %v", err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "envs/prod/my-app.yaml"))
+	if strings.Contains(string(data), strings.Repeat("c", 64)) {
+		t.Error("policy mismatch must not modify prod")
+	}
+}
+
+func TestPromoteDryRunJSONDoesNotMutate(t *testing.T) {
+	dir := setupRepo(t)
+	db := filepath.Join(t.TempDir(), "history.db")
+	repo, _ := git.PlainOpen(dir)
+	before, _ := repo.Head()
+
+	out, err := run(t, "promote", "--to", "prod", "--dry-run", "--json", "--repo", dir, "--db", db)
+	if err != nil {
+		t.Fatalf("promote dry-run: %v\n%s", err, out)
+	}
+	var plan struct {
+		From  string `json:"from"`
+		To    string `json:"to"`
+		Items []any  `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &plan); err != nil {
+		t.Fatal(err)
+	}
+	if plan.From != "dev" || plan.To != "prod" || len(plan.Items) != 1 {
+		t.Errorf("plan = %+v", plan)
+	}
+	after, _ := repo.Head()
+	if before.Hash() != after.Hash() {
+		t.Error("dry-run must not commit")
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "envs/prod/my-app.yaml"))
+	if strings.Contains(string(data), digestNew) {
+		t.Error("dry-run must not rewrite prod")
+	}
+	if _, err := os.Stat(db); !os.IsNotExist(err) {
+		t.Errorf("dry-run must not open history DB, stat error = %v", err)
+	}
+}
+
+func TestResolveActorPrefersExplicitOverride(t *testing.T) {
+	t.Setenv("WATARIDORI_ACTOR", "github:octocat")
+	if got := resolveActor(); got != "github:octocat" {
+		t.Errorf("resolveActor = %q", got)
 	}
 }
 

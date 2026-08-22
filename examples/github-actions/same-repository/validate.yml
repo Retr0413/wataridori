@@ -1,0 +1,16 @@
+name: wataridori-validate
+
+on:
+  pull_request:
+    paths:
+      - wataridori.yaml
+      - environments/**
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    uses: Retr0413/wataridori/.github/workflows/reusable-validate.yml@master # Pin a full SHA in production.
+    with:
+      wataridori_ref: ${{ vars.WATARIDORI_SHA }}

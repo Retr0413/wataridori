@@ -1,0 +1,209 @@
+name: reusable-wataridori-dev-update-pr
+
+on:
+  workflow_call:
+    inputs:
+      wataridori_ref:
+        description: Full 40-character Wataridori commit SHA to install
+        required: true
+        type: string
+      manifest_owner:
+        description: Owner of the manifest repository
+        required: true
+        type: string
+      manifest_repository:
+        description: Manifest repository name without its owner
+        required: true
+        type: string
+      github_app_id:
+        description: GitHub App ID installed on the manifest repository
+        required: true
+        type: string
+      environment:
+        description: Auto-policy manifest environment to update
+        required: false
+        default: dev
+        type: string
+      service:
+        description: Logical Wataridori service name
+        required: true
+        type: string
+      image:
+        description: Immutable IMAGE@sha256:... produced by external CI
+        required: true
+        type: string
+      base_branch:
+        description: Target branch; empty uses the repository default branch
+        required: false
+        default: ""
+        type: string
+    secrets:
+      github_app_private_key:
+        description: Private key of the least-privilege GitHub App
+        required: true
+    outputs:
+      pull_request_url:
+        description: Created or updated pull request URL; empty on no-op
+        value: ${{ jobs.update.outputs.pull_request_url }}
+      changed:
+        description: Whether the manifest changed
+        value: ${{ jobs.update.outputs.changed }}
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      pull_request_url: ${{ steps.pull_request.outputs.url }}
+      changed: ${{ steps.set_image.outputs.changed }}
+    steps:
+      - name: Create least-privilege repository token
+        id: app_token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ inputs.github_app_id }}
+          private-key: ${{ secrets.github_app_private_key }}
+          owner: ${{ inputs.manifest_owner }}
+          repositories: ${{ inputs.manifest_repository }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Resolve target repository
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TARGET_REPOSITORY: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+          REQUESTED_BASE: ${{ inputs.base_branch }}
+        run: |
+          set -euo pipefail
+          base="$REQUESTED_BASE"
+          if [[ -z "$base" ]]; then
+            base="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch)"
+          fi
+          [[ "$base" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "invalid base branch" >&2; exit 1; }
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+          ref: ${{ steps.target.outputs.base }}
+          token: ${{ steps.app_token.outputs.token }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.5
+          cache: false
+
+      - name: Install pinned Wataridori source
+        shell: bash
+        env:
+          WATARIDORI_REF: ${{ inputs.wataridori_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$WATARIDORI_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "wataridori_ref must be a full 40-character commit SHA" >&2
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/wataridori-bin"
+          GOBIN="$RUNNER_TEMP/wataridori-bin" \
+            go install "github.com/Retr0413/wataridori/cmd/wataridori@${WATARIDORI_REF}"
+          echo "$RUNNER_TEMP/wataridori-bin" >> "$GITHUB_PATH"
+
+      - name: Prepare bot branch
+        id: branch
+        shell: bash
+        env:
+          BASE_BRANCH: ${{ steps.target.outputs.base }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          suffix="$(printf '%s-%s' "$ENVIRONMENT" "$SERVICE" | tr -c 'A-Za-z0-9._-' '-')"
+          branch="wataridori/dev-image-${suffix}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch origin "$branch:refs/remotes/origin/$branch"
+            [[ "$(git log -1 --format=%ae "origin/$branch")" == "wataridori[bot]@users.noreply.github.com" ]] || {
+              echo "refusing to overwrite non-Wataridori branch $branch" >&2
+              exit 1
+            }
+          fi
+          git checkout -B "$branch" "origin/$BASE_BRANCH"
+          git config user.name "wataridori[bot]"
+          git config user.email "wataridori[bot]@users.noreply.github.com"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Set immutable dev image
+        id: set_image
+        shell: bash
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+          IMAGE: ${{ inputs.image }}
+        run: |
+          set -euo pipefail
+          wataridori manifest set-image \
+            --env "$ENVIRONMENT" \
+            --service "$SERVICE" \
+            --image "$IMAGE" \
+            --require-policy auto \
+            --json > "$RUNNER_TEMP/set-image.json"
+          cat "$RUNNER_TEMP/set-image.json"
+          echo "changed=$(jq -r .changed "$RUNNER_TEMP/set-image.json")" >> "$GITHUB_OUTPUT"
+          echo "file=$(jq -r .file "$RUNNER_TEMP/set-image.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push manifest change
+        if: steps.set_image.outputs.changed == 'true'
+        shell: bash
+        env:
+          BRANCH: ${{ steps.branch.outputs.name }}
+          FILE: ${{ steps.set_image.outputs.file }}
+          SERVICE: ${{ inputs.service }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          git add -- "$FILE"
+          git commit -m "deploy(${ENVIRONMENT}): update ${SERVICE} digest"
+          git push --force-with-lease origin "HEAD:refs/heads/$BRANCH"
+
+      - name: Create or update dev manifest pull request
+        id: pull_request
+        if: steps.set_image.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TARGET_REPOSITORY: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+          BASE_BRANCH: ${{ steps.target.outputs.base }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+          IMAGE: ${{ inputs.image }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/dev-update-pr.md"
+          {
+            echo "## Wataridori dev image update"
+            echo
+            echo "- Environment: \`$ENVIRONMENT\`"
+            echo "- Service: \`$SERVICE\`"
+            echo "- Image: \`$IMAGE\`"
+            echo "- Source repository: \`${GITHUB_REPOSITORY}\`"
+            echo "- Source commit: \`${GITHUB_SHA}\`"
+            echo
+            echo "This PR changes Git desired state only. Review and merge it before dev apply."
+          } > "$body"
+          number="$(gh pr list --repo "$TARGET_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$number" ]]; then
+            gh pr edit "$number" --repo "$TARGET_REPOSITORY" \
+              --title "deploy(${ENVIRONMENT}): update ${SERVICE} digest" --body-file "$body"
+            url="$(gh pr view "$number" --repo "$TARGET_REPOSITORY" --json url --jq .url)"
+          else
+            url="$(gh pr create --repo "$TARGET_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" \
+              --title "deploy(${ENVIRONMENT}): update ${SERVICE} digest" --body-file "$body")"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Created or updated: $url" >> "$GITHUB_STEP_SUMMARY"

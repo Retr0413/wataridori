@@ -5,6 +5,7 @@
 ```mermaid
 flowchart LR
     CLI["CLI"] --> Core["Core use cases"]
+    GHA["GitHub Actions<br/>reusable workflows"] --> CLI
     Web["React Web UI"] --> RPC["Connect RPC server"]
     RPC --> Core
     Controller["Controller"] --> Core
@@ -68,6 +69,8 @@ the Web UI display those plans before calling the execution operation.
 | `internal/controller` | Periodic and triggered reconciliation |
 | `proto` | API contract and generated-code input |
 | `web` | React UI, generated client, and embedded build output |
+| `actions/setup` | Installs and checksum-verifies a pinned CLI release in consumer workflows |
+| `.github/workflows/reusable-*` | Read-only validation, dev delivery, promotion-PR preparation, and manual prod apply |
 
 Dependencies point toward `internal/core`; UI and CLI rendering do not belong in
 the use-case layer.
@@ -95,6 +98,26 @@ Wataridori uses `cloud.google.com/go/run/apiv2`.
 
 Full log and metric rendering is intentionally delegated to Google Cloud
 Console deep links.
+
+## GitHub Actions boundary
+
+Reusable workflows are adapters around the CLI rather than another control
+plane. Consumer repositories own their event triggers and permissions; the
+called workflows cannot elevate them.
+
+- application CI supplies an already-built digest-pinned image
+- Git changes land before the corresponding Cloud Run apply
+- dev apply may run automatically from the protected default branch
+- dev success may prepare a prod promotion branch and pull request
+- the promotion pull request is never auto-merged
+- prod apply has only a manual dispatch entrypoint, verifies that the selected
+  commit belongs to the protected default branch, and uses a protected GitHub
+  Environment
+
+GCP credentials are short-lived credentials obtained through GitHub OIDC and
+Workload Identity Federation. Cross-repository Git writes require a caller-
+supplied GitHub App installation token; Wataridori does not broaden the default
+`GITHUB_TOKEN` scope.
 
 ## Authentication boundaries
 

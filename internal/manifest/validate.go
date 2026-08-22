@@ -2,8 +2,10 @@ package manifest
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 // validate checks wataridori.yaml rules from docs/spec/phase1-cli.md §1.1.
@@ -64,6 +66,10 @@ func (e *Environment) validate(c *Config) error {
 	}
 	if e.Services == "" {
 		return fmt.Errorf("\"services\" (manifest directory) is required")
+	}
+	cleanServices := filepath.Clean(e.Services)
+	if filepath.IsAbs(e.Services) || cleanServices == ".." || strings.HasPrefix(cleanServices, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("\"services\" must stay within the repository root")
 	}
 	return nil
 }

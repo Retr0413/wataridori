@@ -1,0 +1,30 @@
+name: propose-dev-image
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Logical Wataridori service name
+        required: true
+        type: string
+      image:
+        description: Immutable IMAGE@sha256:... produced by application CI
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  propose:
+    uses: Retr0413/wataridori/.github/workflows/reusable-dev-update-pr.yml@master # Pin a full SHA in production.
+    with:
+      wataridori_ref: ${{ vars.WATARIDORI_SHA }}
+      manifest_owner: ${{ github.repository_owner }}
+      manifest_repository: ${{ vars.MANIFEST_REPOSITORY }}
+      github_app_id: ${{ vars.WATARIDORI_GITHUB_APP_ID }}
+      environment: dev
+      service: ${{ inputs.service }}
+      image: ${{ inputs.image }}
+    secrets:
+      github_app_private_key: ${{ secrets.WATARIDORI_GITHUB_APP_PRIVATE_KEY }}

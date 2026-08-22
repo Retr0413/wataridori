@@ -93,8 +93,10 @@ Rules:
 - service paths may not escape the configured service directory
 
 Apply is declarative for supported fields. Environment variables omitted from
-the manifest are removed. Selected unsupported or platform-managed Cloud Run
-fields are preserved to avoid destructive updates.
+the manifest are removed. Because an update replaces the service wholesale,
+apply first detects running-service settings that the manifest cannot express.
+It refuses a destructive update unless the caller passes `--force`; a dry run
+reports the settings that would be removed without mutating Cloud Run.
 
 ## 2. Commands
 
@@ -104,12 +106,28 @@ Every command supports:
 - `--json`: structured output
 - `--db`: history database path
 
+### 2.0 Validate and update desired state
+
+```sh
+wataridori validate
+wataridori manifest set-image --env dev --service my-app \
+  --image REGION-docker.pkg.dev/PROJECT/REPO/my-app@sha256:...
+```
+
+`validate` loads every service manifest and promotion relationship without
+contacting Git, Artifact Registry, Cloud Run, or history. `manifest set-image`
+changes exactly one manifest, preserves its formatting, rejects mutable tags,
+and leaves commit or pull-request creation to the caller. Automation may pass
+`--require-policy auto` so an untrusted input cannot select a manual production
+environment.
+
 ### 2.1 Apply
 
 ```sh
 wataridori apply --env dev
 wataridori apply --env prod --service my-app
 wataridori apply --env prod --dry-run
+wataridori apply --env prod --force
 ```
 
 Algorithm:
@@ -117,13 +135,18 @@ Algorithm:
 1. load and validate repository configuration
 2. select the environment and optional service
 3. read the current Cloud Run service
-4. calculate create, update, or no-op
-5. stop here for dry run
-6. update Cloud Run using the digest-pinned image
-7. wait for a ready revision until timeout
-8. record one history entry per service
+4. calculate create, update, or no-op and detect settings the manifest cannot
+   express
+5. stop here for dry run, reporting settings that a real apply would remove
+6. refuse an update that would remove those settings unless `--force` is set
+7. update Cloud Run using the digest-pinned image
+8. wait for a ready revision until timeout
+9. record one history entry per service
 
-The default readiness timeout is five minutes and may be overridden.
+The default readiness timeout is five minutes and may be overridden. A forced
+apply still reports every detected setting it removes. Automation may pass
+`--require-policy auto` or `--require-policy manual` to fail before contacting
+Cloud Run when the selected environment has the wrong update policy.
 
 ### 2.2 Promote
 
@@ -131,6 +154,7 @@ The default readiness timeout is five minutes and may be overridden.
 wataridori promote --to prod
 wataridori promote --from dev --to prod --service my-app
 wataridori promote --to prod --yes
+wataridori promote --to prod --dry-run --json
 ```
 
 Algorithm:
@@ -154,6 +178,9 @@ Promotion rejects:
 - unrelated tracked changes that would make the commit unsafe
 
 No-op promotion does not create a commit.
+
+`--dry-run` returns the structured plan without registry copy, manifest write,
+Git commit, or history mutation.
 
 Phase 1 does not push or create a PR. The caller pushes the commit. PR-based
 promotion is planned for `v0.1.0`.
@@ -272,6 +299,8 @@ Phase 1 is accepted when:
 7. history records every successful mutation
 8. JSON output is machine readable
 9. confirmation and dry-run paths perform no mutation
-10. the end-to-end procedure in
+10. apply refuses to remove settings the manifest cannot express unless
+    `--force` is set
+11. the end-to-end procedure in
     [cloudrun-cli-verification.md](../cloudrun-cli-verification.md) succeeds
     against a release candidate

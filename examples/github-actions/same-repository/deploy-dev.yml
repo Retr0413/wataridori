@@ -1,0 +1,36 @@
+name: deploy-dev-and-propose-prod
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - wataridori.yaml
+      - environments/dev/**
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-dev:
+    uses: Retr0413/wataridori/.github/workflows/reusable-dev-deploy.yml@master # Pin a full SHA in production.
+    with:
+      wataridori_ref: ${{ vars.WATARIDORI_SHA }}
+      environment: dev
+      workload_identity_provider: ${{ vars.WATARIDORI_DEV_WIF_PROVIDER }}
+      service_account: ${{ vars.WATARIDORI_DEV_SERVICE_ACCOUNT }}
+
+  propose-prod:
+    needs: deploy-dev
+    uses: Retr0413/wataridori/.github/workflows/reusable-promotion-pr.yml@master # Pin a full SHA in production.
+    with:
+      wataridori_ref: ${{ vars.WATARIDORI_SHA }}
+      manifest_owner: ${{ github.repository_owner }}
+      manifest_repository: ${{ vars.MANIFEST_REPOSITORY }}
+      github_app_id: ${{ vars.WATARIDORI_GITHUB_APP_ID }}
+      from_environment: dev
+      to_environment: prod
+      workload_identity_provider: ${{ vars.WATARIDORI_STATUS_WIF_PROVIDER }}
+      service_account: ${{ vars.WATARIDORI_STATUS_SERVICE_ACCOUNT }}
+    secrets:
+      github_app_private_key: ${{ secrets.WATARIDORI_GITHUB_APP_PRIVATE_KEY }}

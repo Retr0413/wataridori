@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/Retr0413/wataridori/internal/manifest"
 )
 
 func TestApplyRefusesToDropUnmanagedSettings(t *testing.T) {
@@ -65,5 +67,14 @@ func TestApplyProceedsWhenNothingWouldBeDropped(t *testing.T) {
 	}
 	if len(e.cloudRun.applied) != 1 {
 		t.Fatalf("applied = %v, want one service", e.cloudRun.applied)
+	}
+}
+
+func TestApplyCanRequireEnvironmentPolicy(t *testing.T) {
+	e := newTestEngine(t, false)
+	_, err := e.Apply(context.Background(), ApplyRequest{Env: "prod", RequirePolicy: manifest.PolicyAuto})
+	mustContain(t, err, `policy "auto" is required`)
+	if len(e.cloudRun.applied) != 0 {
+		t.Error("policy mismatch must fail before Cloud Run mutation")
 	}
 }

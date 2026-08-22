@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -15,6 +16,7 @@ func newPromoteCmd(g *globalFlags) *cobra.Command {
 		to      string
 		service string
 		yes     bool
+		dryRun  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "promote --to <env> [--from <env>]",
@@ -24,7 +26,9 @@ environment's image digests and records the change as a git commit.
 It does not deploy: run "wataridori apply" (or let the Phase 2
 controller reconcile) to roll the commit out.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			e, cleanup, err := g.engine(cmd, engineOptions{needRepo: true, needStore: true, needCopier: true, needCommit: true})
+			e, cleanup, err := g.engine(cmd, engineOptions{
+				needRepo: true, needStore: !dryRun, needCopier: !dryRun, needCommit: !dryRun,
+			})
 			defer cleanup()
 			if err != nil {
 				return err
@@ -42,18 +46,17 @@ controller reconcile) to roll the commit out.`,
 				fmt.Fprintf(out, "nothing to promote: %s already matches %s\n", plan.To, plan.From)
 				return nil
 			}
+			if dryRun {
+				if g.json {
+					return printJSON(out, plan)
+				}
+				printPromotePlan(out, plan)
+				fmt.Fprintln(out, "dry run: no registry, manifest, Git, or history changes made")
+				return nil
+			}
 
 			if !g.json {
-				var rows [][]string
-				for _, item := range plan.Items {
-					_, d, _ := manifest.SplitDigest(item.NewImage)
-					copyNote := ""
-					if item.NeedsCopy {
-						copyNote = "copy image"
-					}
-					rows = append(rows, []string{item.Service, shortImage(item.OldImage), "->", manifest.ShortDigest(d), copyNote})
-				}
-				table(out, []string{"SERVICE", "CURRENT", "", "NEW DIGEST", ""}, rows)
+				printPromotePlan(out, plan)
 			}
 			if !yes {
 				ok, err := confirm(out, cmd.InOrStdin(), fmt.Sprintf("promote %s -> %s?", plan.From, plan.To))
@@ -80,6 +83,20 @@ controller reconcile) to roll the commit out.`,
 	cmd.Flags().StringVar(&to, "to", "", "target environment (required)")
 	cmd.Flags().StringVar(&service, "service", "", "promote only this service")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the promotion plan without copying, writing, or committing")
 	_ = cmd.MarkFlagRequired("to")
 	return cmd
+}
+
+func printPromotePlan(out io.Writer, plan *core.PromotePlan) {
+	var rows [][]string
+	for _, item := range plan.Items {
+		_, d, _ := manifest.SplitDigest(item.NewImage)
+		copyNote := ""
+		if item.NeedsCopy {
+			copyNote = "copy image"
+		}
+		rows = append(rows, []string{item.Service, shortImage(item.OldImage), "->", manifest.ShortDigest(d), copyNote})
+	}
+	table(out, []string{"SERVICE", "CURRENT", "", "NEW DIGEST", ""}, rows)
 }
