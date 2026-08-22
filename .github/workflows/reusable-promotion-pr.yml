@@ -1,0 +1,227 @@
+name: reusable-wataridori-promotion-pr
+
+on:
+  workflow_call:
+    inputs:
+      wataridori_ref:
+        description: Full 40-character Wataridori commit SHA to install
+        required: true
+        type: string
+      manifest_owner:
+        required: true
+        type: string
+      manifest_repository:
+        required: true
+        type: string
+      github_app_id:
+        required: true
+        type: string
+      from_environment:
+        required: false
+        default: dev
+        type: string
+      to_environment:
+        required: false
+        default: prod
+        type: string
+      service:
+        required: false
+        default: ""
+        type: string
+      base_branch:
+        required: false
+        default: ""
+        type: string
+      workload_identity_provider:
+        required: true
+        type: string
+      service_account:
+        description: Read-only Cloud Run status service account email
+        required: true
+        type: string
+    secrets:
+      github_app_private_key:
+        required: true
+    outputs:
+      pull_request_url:
+        value: ${{ jobs.propose.outputs.pull_request_url }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      pull_request_url: ${{ steps.pull_request.outputs.url }}
+    steps:
+      - name: Create least-privilege repository token
+        id: app_token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ inputs.github_app_id }}
+          private-key: ${{ secrets.github_app_private_key }}
+          owner: ${{ inputs.manifest_owner }}
+          repositories: ${{ inputs.manifest_repository }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Resolve target repository
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TARGET_REPOSITORY: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+          REQUESTED_BASE: ${{ inputs.base_branch }}
+        run: |
+          set -euo pipefail
+          base="$REQUESTED_BASE"
+          if [[ -z "$base" ]]; then
+            base="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch)"
+          fi
+          [[ "$base" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "invalid base branch" >&2; exit 1; }
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+          ref: ${{ steps.target.outputs.base }}
+          token: ${{ steps.app_token.outputs.token }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.6
+          cache: false
+
+      - name: Install pinned Wataridori source
+        shell: bash
+        env:
+          WATARIDORI_REF: ${{ inputs.wataridori_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$WATARIDORI_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "wataridori_ref must be a full 40-character commit SHA" >&2
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/wataridori-bin"
+          GOBIN="$RUNNER_TEMP/wataridori-bin" \
+            go install "github.com/Retr0413/wataridori/cmd/wataridori@${WATARIDORI_REF}"
+          echo "$RUNNER_TEMP/wataridori-bin" >> "$GITHUB_PATH"
+
+      - name: Authenticate for read-only dev verification
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ inputs.workload_identity_provider }}
+          service_account: ${{ inputs.service_account }}
+
+      - name: Verify dev is serving Git desired state
+        shell: bash
+        env:
+          FROM_ENVIRONMENT: ${{ inputs.from_environment }}
+        run: |
+          set -euo pipefail
+          wataridori status --env "$FROM_ENVIRONMENT" --check --json > "$RUNNER_TEMP/dev-status.json"
+          cat "$RUNNER_TEMP/dev-status.json"
+
+      - name: Plan production promotion without mutation
+        id: plan
+        shell: bash
+        env:
+          FROM_ENVIRONMENT: ${{ inputs.from_environment }}
+          TO_ENVIRONMENT: ${{ inputs.to_environment }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          args=(promote --from "$FROM_ENVIRONMENT" --to "$TO_ENVIRONMENT" --dry-run --json)
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          wataridori "${args[@]}" > "$RUNNER_TEMP/promotion-plan.json"
+          cat "$RUNNER_TEMP/promotion-plan.json"
+          if jq -e '[.items[].needsCopy] | any' "$RUNNER_TEMP/promotion-plan.json" >/dev/null; then
+            echo "split-registry promotion PRs are not supported by this MVP; run an explicit trusted promotion instead" >&2
+            exit 1
+          fi
+          echo "count=$(jq '.items | length' "$RUNNER_TEMP/promotion-plan.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare promotion branch
+        if: steps.plan.outputs.count != '0'
+        id: branch
+        shell: bash
+        env:
+          BASE_BRANCH: ${{ steps.target.outputs.base }}
+          FROM_ENVIRONMENT: ${{ inputs.from_environment }}
+          TO_ENVIRONMENT: ${{ inputs.to_environment }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          suffix="$(printf '%s-%s-%s' "$FROM_ENVIRONMENT" "$TO_ENVIRONMENT" "${SERVICE:-all}" | tr -c 'A-Za-z0-9._-' '-')"
+          branch="wataridori/promote-${suffix}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch origin "$branch:refs/remotes/origin/$branch"
+            [[ "$(git log -1 --format=%ae "origin/$branch")" == "wataridori[bot]@users.noreply.github.com" ]] || {
+              echo "refusing to overwrite non-Wataridori branch $branch" >&2
+              exit 1
+            }
+          fi
+          git checkout -B "$branch" "origin/$BASE_BRANCH"
+          git config user.name "wataridori[bot]"
+          git config user.email "wataridori[bot]@users.noreply.github.com"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Commit promotion and push bot branch
+        if: steps.plan.outputs.count != '0'
+        shell: bash
+        env:
+          FROM_ENVIRONMENT: ${{ inputs.from_environment }}
+          TO_ENVIRONMENT: ${{ inputs.to_environment }}
+          SERVICE: ${{ inputs.service }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          WATARIDORI_ACTOR: github:${{ github.actor }}
+          WATARIDORI_DB: ${{ runner.temp }}/wataridori-history.db
+        run: |
+          set -euo pipefail
+          args=(promote --from "$FROM_ENVIRONMENT" --to "$TO_ENVIRONMENT" --yes --json)
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          wataridori "${args[@]}" > "$RUNNER_TEMP/promotion-result.json"
+          cat "$RUNNER_TEMP/promotion-result.json"
+          git push --force-with-lease origin "HEAD:refs/heads/$BRANCH"
+
+      - name: Create or update production promotion pull request
+        if: steps.plan.outputs.count != '0'
+        id: pull_request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TARGET_REPOSITORY: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+          BASE_BRANCH: ${{ steps.target.outputs.base }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          FROM_ENVIRONMENT: ${{ inputs.from_environment }}
+          TO_ENVIRONMENT: ${{ inputs.to_environment }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/promotion-pr.md"
+          {
+            echo "## Wataridori production promotion proposal"
+            echo
+            echo "Source: \`$FROM_ENVIRONMENT\`"
+            echo "Target: \`$TO_ENVIRONMENT\`"
+            echo
+            jq -r '.items[] | "- `\(.service)`: `\(.oldImage)` → `\(.newImage)`"' "$RUNNER_TEMP/promotion-plan.json"
+            echo
+            echo "Dev verification run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "This PR never merges or deploys itself. After human review and merge, prod apply still requires a manual workflow dispatch and protected Environment approval."
+          } > "$body"
+          title="promote(${TO_ENVIRONMENT}): ${SERVICE:-all services} from ${FROM_ENVIRONMENT}"
+          number="$(gh pr list --repo "$TARGET_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$number" ]]; then
+            gh pr edit "$number" --repo "$TARGET_REPOSITORY" --title "$title" --body-file "$body"
+            url="$(gh pr view "$number" --repo "$TARGET_REPOSITORY" --json url --jq .url)"
+          else
+            url="$(gh pr create --repo "$TARGET_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" --title "$title" --body-file "$body")"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Production promotion requires human review: $url" >> "$GITHUB_STEP_SUMMARY"

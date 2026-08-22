@@ -138,6 +138,72 @@ func TestLoadAllAutoWarns(t *testing.T) {
 	}
 }
 
+func TestServicesPathCannotEscapeRepository(t *testing.T) {
+	root := writeRepo(t, map[string]string{
+		ConfigFileName: "version: 1\nenvironments:\n  dev: {policy: manual, gcp: {project: p, region: r}, services: ../outside}\n",
+	})
+	_, _, err := Load(root)
+	if err == nil || !strings.Contains(err.Error(), "repository root") {
+		t.Fatalf("Load error = %v", err)
+	}
+}
+
+func TestDuplicateLogicalServiceIsRejected(t *testing.T) {
+	root := writeRepo(t, map[string]string{
+		ConfigFileName: "version: 1\nenvironments:\n  dev: {policy: manual, gcp: {project: p, region: r}, services: svcs}\n",
+		"svcs/a.yaml":  "name: app\nimage: gcr.io/p/app@" + digestA + "\n",
+		"svcs/b.yaml":  "name: app\nimage: gcr.io/p/app@" + digestA + "\n",
+	})
+	repo, _, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, _ := repo.Environment("dev")
+	_, err = repo.LoadServices(env)
+	if err == nil || !strings.Contains(err.Error(), "declared in both") {
+		t.Fatalf("LoadServices error = %v", err)
+	}
+}
+
+func TestDuplicateCloudRunTargetIsRejected(t *testing.T) {
+	root := writeRepo(t, map[string]string{
+		ConfigFileName: "version: 1\nenvironments:\n  dev: {policy: manual, gcp: {project: p, region: r}, services: svcs}\n",
+		"svcs/a.yaml":  "name: logical-a\ncloudRunName: shared\nimage: gcr.io/p/app@" + digestA + "\n",
+		"svcs/b.yaml":  "name: logical-b\ncloudRunName: shared\nimage: gcr.io/p/app@" + digestA + "\n",
+	})
+	repo, _, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, _ := repo.Environment("dev")
+	_, err = repo.LoadServices(env)
+	if err == nil || !strings.Contains(err.Error(), "targeted by both") {
+		t.Fatalf("LoadServices error = %v", err)
+	}
+}
+
+func TestServiceManifestSymlinkIsRejected(t *testing.T) {
+	root := writeRepo(t, map[string]string{
+		ConfigFileName: "version: 1\nenvironments:\n  dev: {policy: manual, gcp: {project: p, region: r}, services: svcs}\n",
+		"outside.yaml": "name: app\nimage: gcr.io/p/app@" + digestA + "\n",
+	})
+	if err := os.MkdirAll(filepath.Join(root, "svcs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "outside.yaml"), filepath.Join(root, "svcs", "app.yaml")); err != nil {
+		t.Skipf("symlink unsupported: %v", err)
+	}
+	repo, _, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, _ := repo.Environment("dev")
+	_, err = repo.LoadServices(env)
+	if err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("LoadServices error = %v", err)
+	}
+}
+
 func TestServiceValidation(t *testing.T) {
 	base := "version: 1\nenvironments:\n  dev: {policy: manual, gcp: {project: p, region: r}, services: svcs}\n"
 	tests := []struct {
@@ -272,7 +338,13 @@ func TestSplitDigest(t *testing.T) {
 	if ShortDigest(digestA) != "aaaaaaaaaaaa" {
 		t.Errorf("ShortDigest = %q", ShortDigest(digestA))
 	}
-	for _, bad := range []string{"gcr.io/p/app:latest", "gcr.io/p/app", "@sha256:" + strings.Repeat("a", 64)} {
+	for _, bad := range []string{
+		"gcr.io/p/app:latest",
+		"gcr.io/p/app",
+		"@sha256:" + strings.Repeat("a", 64),
+		"gcr.io/p/app@sha256:" + strings.Repeat("z", 64),
+		"gcr.io/p/app\ninjected@sha256:" + strings.Repeat("a", 64),
+	} {
 		if _, _, err := SplitDigest(bad); err == nil {
 			t.Errorf("SplitDigest(%q): want error", bad)
 		}

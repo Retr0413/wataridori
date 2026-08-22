@@ -23,7 +23,11 @@ delivery features.
 
 - [ ] complete the public-repository security and documentation audit
 - [ ] run the full dev-to-prod acceptance test on real GCP
-- [ ] add PR-based promotion
+- [x] add PR-based promotion through a reusable GitHub Actions workflow
+- [x] publish the GitHub Actions setup Action and reusable validation workflow
+- [x] create or update a prod promotion PR after a successful dev apply
+- [x] provide OIDC-authenticated automatic dev apply and manual-only prod apply
+- [ ] prove adoption from a separate repository without automatic prod changes
 - [ ] verify GoReleaser snapshot artifacts and the container image
 - [ ] publish installation, IAM, troubleshooting, and rollback runbooks
 - [ ] tag and publish `v0.1.0`

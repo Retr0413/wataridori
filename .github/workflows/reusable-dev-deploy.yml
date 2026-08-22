@@ -1,0 +1,137 @@
+name: reusable-wataridori-dev-deploy
+
+on:
+  workflow_call:
+    inputs:
+      wataridori_ref:
+        description: Full 40-character Wataridori commit SHA to install
+        required: true
+        type: string
+      environment:
+        description: Auto-policy environment to apply
+        required: false
+        default: dev
+        type: string
+      service:
+        description: Optional logical service filter
+        required: false
+        default: ""
+        type: string
+      repo_path:
+        description: Manifest repository path after checkout
+        required: false
+        default: .
+        type: string
+      workload_identity_provider:
+        description: Google Cloud Workload Identity Provider resource name
+        required: true
+        type: string
+      service_account:
+        description: Least-privilege dev deploy service account email
+        required: true
+        type: string
+    outputs:
+      commit_sha:
+        description: Manifest commit applied to dev
+        value: ${{ jobs.deploy.outputs.commit_sha }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ${{ github.repository }}-wataridori-${{ inputs.environment }}
+      cancel-in-progress: false
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Require protected default branch
+        id: commit
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/$DEFAULT_BRANCH" ]] || {
+            echo "dev deploy must be called from the default branch" >&2
+            exit 1
+          }
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.6
+          cache: false
+
+      - name: Install pinned Wataridori source
+        shell: bash
+        env:
+          WATARIDORI_REF: ${{ inputs.wataridori_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$WATARIDORI_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "wataridori_ref must be a full 40-character commit SHA" >&2
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/wataridori-bin"
+          GOBIN="$RUNNER_TEMP/wataridori-bin" \
+            go install "github.com/Retr0413/wataridori/cmd/wataridori@${WATARIDORI_REF}"
+          echo "$RUNNER_TEMP/wataridori-bin" >> "$GITHUB_PATH"
+
+      - name: Authenticate to Google Cloud with OIDC
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ inputs.workload_identity_provider }}
+          service_account: ${{ inputs.service_account }}
+
+      - name: Plan dev apply
+        shell: bash
+        env:
+          REPO_PATH: ${{ inputs.repo_path }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+          WATARIDORI_ACTOR: github:${{ github.actor }}
+        run: |
+          set -euo pipefail
+          args=(apply --repo "$REPO_PATH" --env "$ENVIRONMENT" --require-policy auto --dry-run --json)
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          wataridori "${args[@]}" > "$RUNNER_TEMP/dev-plan.json"
+          cat "$RUNNER_TEMP/dev-plan.json"
+          {
+            echo "### Wataridori dev apply plan"
+            echo
+            jq -r '.services[] | "- `\(.service)`: `\(.actualImage // "not deployed")` → `\(.desiredImage)`"' \
+              "$RUNNER_TEMP/dev-plan.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply dev
+        shell: bash
+        env:
+          REPO_PATH: ${{ inputs.repo_path }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+          WATARIDORI_ACTOR: github:${{ github.actor }}
+          WATARIDORI_DB: ${{ runner.temp }}/wataridori-history.db
+        run: |
+          set -euo pipefail
+          args=(apply --repo "$REPO_PATH" --env "$ENVIRONMENT" --require-policy auto --json)
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          wataridori "${args[@]}" > "$RUNNER_TEMP/dev-apply.json"
+          cat "$RUNNER_TEMP/dev-apply.json"
+          jq -r '.services[] | "Deployed `\(.service)` as revision `\(.revision)` using `\(.desiredImage)`."' \
+            "$RUNNER_TEMP/dev-apply.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify dev desired and actual state
+        shell: bash
+        env:
+          REPO_PATH: ${{ inputs.repo_path }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: wataridori status --repo "$REPO_PATH" --env "$ENVIRONMENT" --check --json

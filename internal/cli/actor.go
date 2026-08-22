@@ -12,6 +12,9 @@ import (
 // User-credential ADC files carry no email, so this is best effort
 // (spec §3).
 func resolveActor() string {
+	if actor := os.Getenv("WATARIDORI_ACTOR"); actor != "" {
+		return actor
+	}
 	if email := adcClientEmail(); email != "" {
 		return email
 	}

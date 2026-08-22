@@ -1,0 +1,26 @@
+name: deploy-prod-manually
+
+# This must remain the only trigger. Merging a promotion PR does not deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Optional logical service; empty applies all prod services
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-prod:
+    uses: Retr0413/wataridori/.github/workflows/reusable-prod-apply.yml@master # Pin a full SHA in production.
+    with:
+      wataridori_ref: ${{ vars.WATARIDORI_SHA }}
+      environment: prod
+      service: ${{ inputs.service }}
+      github_environment: production
+      workload_identity_provider: ${{ vars.WATARIDORI_PROD_WIF_PROVIDER }}
+      service_account: ${{ vars.WATARIDORI_PROD_SERVICE_ACCOUNT }}

@@ -47,6 +47,8 @@ func newRootCmd() *cobra.Command {
 	root.PersistentFlags().StringVar(&g.db, "db", "", "history database path (default: $WATARIDORI_DB or ~/.local/share/wataridori/history.db)")
 
 	root.AddCommand(
+		newValidateCmd(g),
+		newManifestCmd(g),
 		newApplyCmd(g),
 		newPromoteCmd(g),
 		newRollbackCmd(g),

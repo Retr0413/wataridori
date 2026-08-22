@@ -14,8 +14,9 @@ import (
 // Repo is a loaded manifest repository.
 type Repo struct {
 	// Root is the absolute path of the directory containing wataridori.yaml.
-	Root   string
-	Config *Config
+	Root     string
+	Config   *Config
+	Warnings []string
 }
 
 // FindRoot walks upwards from dir until it finds wataridori.yaml.
@@ -55,7 +56,11 @@ func Load(root string) (*Repo, []string, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", ConfigFileName, err)
 	}
-	return &Repo{Root: root, Config: cfg}, warnings, nil
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &Repo{Root: absRoot, Config: cfg, Warnings: warnings}, warnings, nil
 }
 
 // Environment returns the named environment or an error listing the
@@ -75,15 +80,23 @@ func (r *Repo) Environment(name string) (*Environment, error) {
 // LoadServices reads every service manifest (*.yaml, *.yml) in the
 // environment's services directory, sorted by file name.
 func (r *Repo) LoadServices(env *Environment) ([]*Service, error) {
-	dir := filepath.Join(r.Root, env.Services)
+	dir, err := r.servicesDir(env)
+	if err != nil {
+		return nil, err
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("environment %q: %w", env.Name, err)
 	}
 	var services []*Service
+	seen := make(map[string]string)
+	seenRunNames := make(map[string]string)
 	for _, e := range entries {
 		if e.IsDir() || !isYAML(e.Name()) {
 			continue
+		}
+		if e.Type()&os.ModeSymlink != 0 {
+			return nil, fmt.Errorf("environment %q: service manifest %s must not be a symbolic link", env.Name, e.Name())
 		}
 		rel := filepath.Join(env.Services, e.Name())
 		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
@@ -98,12 +111,37 @@ func (r *Repo) LoadServices(env *Environment) ([]*Service, error) {
 		if err := svc.validate(); err != nil {
 			return nil, fmt.Errorf("%s: %w", rel, err)
 		}
+		if previous, ok := seen[svc.Name]; ok {
+			return nil, fmt.Errorf("environment %q: service %q is declared in both %s and %s", env.Name, svc.Name, previous, rel)
+		}
+		seen[svc.Name] = rel
+		if previous, ok := seenRunNames[svc.RunName()]; ok {
+			return nil, fmt.Errorf("environment %q: Cloud Run service %q is targeted by both %s and %s", env.Name, svc.RunName(), previous, rel)
+		}
+		seenRunNames[svc.RunName()] = rel
 		services = append(services, svc)
 	}
 	if len(services) == 0 {
 		return nil, fmt.Errorf("environment %q: no service manifests found in %s", env.Name, env.Services)
 	}
 	return services, nil
+}
+
+func (r *Repo) servicesDir(env *Environment) (string, error) {
+	dir := filepath.Join(r.Root, env.Services)
+	resolvedRoot, err := filepath.EvalSymlinks(r.Root)
+	if err != nil {
+		return "", err
+	}
+	resolvedDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", fmt.Errorf("environment %q: %w", env.Name, err)
+	}
+	rel, err := filepath.Rel(resolvedRoot, resolvedDir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("environment %q: services directory %q escapes the repository root", env.Name, env.Services)
+	}
+	return dir, nil
 }
 
 // UpdateServiceImage rewrites the image reference of svc's manifest file by

@@ -1,11 +1,15 @@
 package manifest
 
 import (
+	encodinghex "encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
 const digestSeparator = "@sha256:"
+
+var imagePathRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]*$`)
 
 // IsDigestPinned reports whether image references a sha256 digest.
 func IsDigestPinned(image string) bool {
@@ -23,6 +27,12 @@ func SplitDigest(image string) (path, digest string, err error) {
 	path, digest = image[:i], image[i+1:]
 	hex := strings.TrimPrefix(digest, "sha256:")
 	if path == "" || len(hex) != 64 {
+		return "", "", fmt.Errorf("image %q has a malformed digest reference", image)
+	}
+	if _, err := encodinghex.DecodeString(hex); err != nil {
+		return "", "", fmt.Errorf("image %q has a malformed digest reference", image)
+	}
+	if !imagePathRE.MatchString(path) {
 		return "", "", fmt.Errorf("image %q has a malformed digest reference", image)
 	}
 	return path, digest, nil

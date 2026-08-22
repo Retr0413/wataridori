@@ -44,6 +44,9 @@ images, not image builds.
 - `inventory list`: classify managed and unmanaged Cloud Run services
 - `history`: inspect locally recorded apply, promote, and rollback operations
 - JSON output and a drift-aware exit code for automation
+- Offline manifest validation and digest-only manifest updates for CI
+- Reusable GitHub Actions workflows for automatic dev delivery, automatic
+  production proposal PRs, and manual-only production apply
 
 ### Server and Web UI
 
@@ -66,6 +69,12 @@ images, not image builds.
 - Progressive delivery and automatic rollback
 
 See the [roadmap](docs/roadmap.md) for the release plan.
+
+To consume Wataridori from another repository, see the
+[GitHub Actions CD guide](docs/github-actions.md). The supplied workflows may
+prepare a production promotion PR automatically, but they never merge it or
+deploy production without a separate manual dispatch and protected Environment
+approval.
 
 ## Install from source
 
@@ -110,6 +119,7 @@ image: asia-northeast1-docker.pkg.dev/my-project/images/hello@sha256:...
 Deploy development:
 
 ```sh
+wataridori validate
 wataridori apply --env dev
 ```
 
@@ -177,6 +187,8 @@ Git and Cloud Run on every operation.
 | [Requirements](docs/requirements.md) | MVP, v1.0, future scope, and non-goals |
 | [Architecture](docs/architecture.md) | Components, dependencies, and design decisions |
 | [System flows](docs/system-flow.md) | Apply, promotion, rollback, and controller flows |
+| [GitHub Actions CD](docs/github-actions.md) | Reusable workflows and the manual production boundary |
+| [GitHub OIDC setup](docs/github-oidc-setup.md) | Keyless Google Cloud authentication and trust restrictions |
 | [Concepts and glossary](docs/concepts-and-glossary.md) | GitOps and Cloud Run terminology |
 | [Roadmap](docs/roadmap.md) | Current implementation status and release plan |
 | [CLI specification](docs/spec/phase1-cli.md) | Detailed manifest and command behavior |

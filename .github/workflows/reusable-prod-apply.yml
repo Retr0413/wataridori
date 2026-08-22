@@ -1,0 +1,146 @@
+name: reusable-wataridori-prod-apply
+
+on:
+  workflow_call:
+    inputs:
+      wataridori_ref:
+        description: Full 40-character Wataridori commit SHA to install
+        required: true
+        type: string
+      environment:
+        description: Manual-policy environment to apply
+        required: false
+        default: prod
+        type: string
+      service:
+        description: Optional logical service filter
+        required: false
+        default: ""
+        type: string
+      repo_path:
+        required: false
+        default: .
+        type: string
+      github_environment:
+        description: Protected GitHub Environment requiring reviewers
+        required: false
+        default: production
+        type: string
+      workload_identity_provider:
+        required: true
+        type: string
+      service_account:
+        description: Least-privilege production deploy service account email
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.github_environment }}
+    concurrency:
+      group: ${{ github.repository }}-wataridori-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - name: Require an explicit manual caller
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]] || {
+            echo "production apply can only be called by workflow_dispatch" >&2
+            exit 1
+          }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Require the current protected default-branch commit
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          [[ -n "$DEFAULT_BRANCH" ]] || { echo "default branch is unavailable" >&2; exit 1; }
+          git fetch origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          head_sha="$(git rev-parse HEAD)"
+          default_sha="$(git rev-parse "origin/$DEFAULT_BRANCH")"
+          [[ "$head_sha" == "$default_sha" ]] || {
+            echo "refusing prod apply: selected commit is not the current default-branch commit" >&2
+            exit 1
+          }
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.6
+          cache: false
+
+      - name: Install pinned Wataridori source
+        shell: bash
+        env:
+          WATARIDORI_REF: ${{ inputs.wataridori_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$WATARIDORI_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "wataridori_ref must be a full 40-character commit SHA" >&2
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/wataridori-bin"
+          GOBIN="$RUNNER_TEMP/wataridori-bin" \
+            go install "github.com/Retr0413/wataridori/cmd/wataridori@${WATARIDORI_REF}"
+          echo "$RUNNER_TEMP/wataridori-bin" >> "$GITHUB_PATH"
+
+      - name: Authenticate to Google Cloud with OIDC
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ inputs.workload_identity_provider }}
+          service_account: ${{ inputs.service_account }}
+
+      - name: Plan production apply
+        shell: bash
+        env:
+          REPO_PATH: ${{ inputs.repo_path }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+          WATARIDORI_ACTOR: github:${{ github.actor }}
+        run: |
+          set -euo pipefail
+          args=(apply --repo "$REPO_PATH" --env "$ENVIRONMENT" --require-policy manual --dry-run --json)
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          wataridori "${args[@]}" > "$RUNNER_TEMP/prod-plan.json"
+          cat "$RUNNER_TEMP/prod-plan.json"
+          {
+            echo "### Wataridori production apply plan"
+            echo
+            jq -r '.services[] | "- `\(.service)`: `\(.actualImage // "not deployed")` → `\(.desiredImage)`"' \
+              "$RUNNER_TEMP/prod-plan.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply production
+        shell: bash
+        env:
+          REPO_PATH: ${{ inputs.repo_path }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+          WATARIDORI_ACTOR: github:${{ github.actor }}
+          WATARIDORI_DB: ${{ runner.temp }}/wataridori-history.db
+        run: |
+          set -euo pipefail
+          args=(apply --repo "$REPO_PATH" --env "$ENVIRONMENT" --require-policy manual --json)
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          wataridori "${args[@]}" > "$RUNNER_TEMP/prod-apply.json"
+          cat "$RUNNER_TEMP/prod-apply.json"
+          jq -r '.services[] | "Deployed `\(.service)` as revision `\(.revision)` using `\(.desiredImage)`."' \
+            "$RUNNER_TEMP/prod-apply.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify production desired and actual state
+        shell: bash
+        env:
+          REPO_PATH: ${{ inputs.repo_path }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: wataridori status --repo "$REPO_PATH" --env "$ENVIRONMENT" --check --json

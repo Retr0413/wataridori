@@ -8,15 +8,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Retr0413/wataridori/internal/core"
+	"github.com/Retr0413/wataridori/internal/manifest"
 )
 
 func newApplyCmd(g *globalFlags) *cobra.Command {
 	var (
-		env     string
-		service string
-		dryRun  bool
-		force   bool
-		timeout time.Duration
+		env           string
+		service       string
+		dryRun        bool
+		force         bool
+		requirePolicy string
+		timeout       time.Duration
 	)
 	cmd := &cobra.Command{
 		Use:   "apply --env <env>",
@@ -29,7 +31,8 @@ func newApplyCmd(g *globalFlags) *cobra.Command {
 			}
 
 			res, err := e.Apply(cmd.Context(), core.ApplyRequest{
-				Env: env, Service: service, DryRun: dryRun, Force: force, Timeout: timeout,
+				Env: env, Service: service, DryRun: dryRun, Force: force,
+				RequirePolicy: manifest.Policy(requirePolicy), Timeout: timeout,
 			})
 			if err != nil {
 				return err
@@ -67,6 +70,7 @@ func newApplyCmd(g *globalFlags) *cobra.Command {
 	cmd.Flags().StringVar(&service, "service", "", "deploy only this service")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the diff without deploying")
 	cmd.Flags().BoolVar(&force, "force", false, "apply even when it removes settings the manifest cannot express")
+	cmd.Flags().StringVar(&requirePolicy, "require-policy", "", "refuse unless the environment has this policy (auto or manual)")
 	cmd.Flags().DurationVar(&timeout, "timeout", core.DefaultApplyTimeout, "wait for the revision to become ready")
 	_ = cmd.MarkFlagRequired("env")
 	return cmd
