@@ -89,6 +89,11 @@ func (s *Service) validate() error {
 	if _, _, err := SplitDigest(s.Image); err != nil {
 		return err
 	}
+	switch s.EffectiveApplyMode() {
+	case ApplyModeFull, ApplyModeImageOnly:
+	default:
+		return fmt.Errorf("unknown applyMode %q (must be full or image-only)", s.ApplyMode)
+	}
 	// Only the name that reaches the API is format-checked; "name" is a
 	// manifest-side identity and stays free-form when cloudRunName is set.
 	if run := s.RunName(); !serviceNameRE.MatchString(run) || len(run) > 63 {

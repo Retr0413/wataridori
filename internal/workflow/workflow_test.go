@@ -14,6 +14,7 @@ import (
 
 var reusableFiles = []string{
 	"reusable-validate.yml",
+	"reusable-artifact-event.yml",
 	"reusable-dev-update-pr.yml",
 	"reusable-dev-deploy.yml",
 	"reusable-promotion-pr.yml",
@@ -127,6 +128,32 @@ func TestAutomationNeverExposesForceOrAutomaticProduction(t *testing.T) {
 	prod := string(read(t, ".github", "workflows", "reusable-prod-apply.yml"))
 	if !strings.Contains(prod, `GITHUB_EVENT_NAME" == "workflow_dispatch`) {
 		t.Error("prod reusable workflow must reject non-manual callers")
+	}
+}
+
+func TestArtifactAndPromotionSafetyGuards(t *testing.T) {
+	artifact := string(read(t, ".github", "workflows", "reusable-artifact-event.yml"))
+	for _, required := range []string{
+		"args=(event image", "--max-age 24h", "EXPECTED_BASE_SHA",
+		"git merge-base --is-ancestor", "git push origin", "Wataridori-Event-ID",
+	} {
+		if !strings.Contains(artifact, required) {
+			t.Errorf("artifact workflow is missing guard %q", required)
+		}
+	}
+	if strings.Contains(artifact, "gh pr create") {
+		t.Error("same-repository Artifact Event must commit directly, not create a PR")
+	}
+
+	promotion := string(read(t, ".github", "workflows", "reusable-promotion-pr.yml"))
+	for _, required := range []string{
+		"promotion check", "promotion-evidence.json", "cancel-in-progress: false",
+		"refusing stale or out-of-order promotion candidate", "base branch moved",
+		"Wataridori-Evidence-ID",
+	} {
+		if !strings.Contains(promotion, required) {
+			t.Errorf("promotion workflow is missing guard %q", required)
+		}
 	}
 }
 

@@ -10,6 +10,17 @@ const (
 	PolicyManual Policy = "manual"
 )
 
+// ApplyMode controls which Cloud Run fields Wataridori owns.
+type ApplyMode string
+
+const (
+	// ApplyModeFull rebuilds the service from the manifest.
+	ApplyModeFull ApplyMode = "full"
+	// ApplyModeImageOnly preserves the existing service and updates only its
+	// container image. It is intended for Terraform-owned services.
+	ApplyModeImageOnly ApplyMode = "image-only"
+)
+
 // ConfigFileName is the environment definition file at the repository root.
 const ConfigFileName = "wataridori.yaml"
 
@@ -55,6 +66,7 @@ type Service struct {
 	// would otherwise have no name in common to promote along.
 	CloudRunName   string    `yaml:"cloudRunName,omitempty"`
 	Image          string    `yaml:"image"`
+	ApplyMode      ApplyMode `yaml:"applyMode,omitempty"`
 	Env            []EnvVar  `yaml:"env,omitempty"`
 	Resources      Resources `yaml:"resources,omitempty"`
 	Scaling        Scaling   `yaml:"scaling,omitempty"`
@@ -65,6 +77,14 @@ type Service struct {
 	// File is the manifest path relative to the repository root,
 	// filled in by the loader.
 	File string `yaml:"-"`
+}
+
+// EffectiveApplyMode keeps existing manifests backward compatible.
+func (s *Service) EffectiveApplyMode() ApplyMode {
+	if s.ApplyMode == "" {
+		return ApplyModeFull
+	}
+	return s.ApplyMode
 }
 
 // RunName is the Cloud Run service name to read and write: CloudRunName when

@@ -7,7 +7,7 @@ features listed as out of scope must not be added implicitly.
 
 | Priority | Capability |
 |---|---|
-| MVP | Environment policies, digest promotion, rollback, status, history, CLI |
+| MVP | Environment policies, artifact events, promotion evidence, digest promotion, rollback, status, history, CLI |
 | v1.0 | Operational Web UI, detailed service state, authentication, approvals, notifications |
 | Future | Progressive delivery and metric-driven automatic rollback |
 | Out of scope | Image builds, non-Cloud Run runtimes, full log and metric views |
@@ -31,7 +31,8 @@ environment's manifest.
 
 - Tags such as `latest` and `v1.2` are rejected as deployment references.
 - The promoted artifact is bit-for-bit identical to the verified source image.
-- Promotion creates a Git commit; PR-based promotion is planned.
+- Promotion creates a Git commit; the GitHub Actions kit can place that commit
+  in an evidence-backed production pull request.
 - If environments use separate Artifact Registry repositories, Wataridori may
   copy the image by digest while preserving the target repository path.
 
@@ -80,9 +81,11 @@ an image; it hands Wataridori an immutable `IMAGE@sha256:...` reference.
 
 The MVP GitHub flow is deliberately asymmetric:
 
+- an application CI artifact event may update only an `auto` environment with
+  an immutable digest, after Artifact Registry verification
 - a reviewed dev manifest change may apply to dev automatically
-- successful dev apply may automatically create or update a dev-to-prod
-  promotion pull request
+- successful dev apply may create or update a dev-to-prod promotion pull
+  request only when promotion inspection is eligible
 - automation must never merge the promotion pull request
 - creating, updating, reviewing, or merging the pull request must not apply to
   prod
@@ -92,6 +95,19 @@ The MVP GitHub flow is deliberately asymmetric:
 The production apply workflow must not expose `--force` or accept an unmerged
 branch. GitHub-to-GCP authentication uses OIDC and Workload Identity Federation,
 not a stored service-account key.
+
+Artifact events and promotion pull requests carry source repository, source
+commit, workflow run, immutable digest, and inspection evidence. Replayed,
+expired, out-of-order, duplicate, or stale candidates fail closed or become a
+documented no-op. Consumer-controlled shell commands and arbitrary health-check
+hosts are not part of this contract.
+
+For services whose non-image configuration remains owned by Terraform,
+`applyMode: image-only` updates the existing Cloud Run service's container image
+through a field mask. It never creates the service and preserves the remainder
+of the observed service configuration. The legacy full manifest replacement
+remains the backward-compatible default and may be selected explicitly with
+`applyMode: full`.
 
 ## v1.0
 

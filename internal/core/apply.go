@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Retr0413/wataridori/internal/cloudrun"
 	"github.com/Retr0413/wataridori/internal/manifest"
 	"github.com/Retr0413/wataridori/internal/store"
 )
@@ -49,7 +50,8 @@ type ApplyResult struct {
 }
 
 type ApplyServiceResult struct {
-	Service string `json:"service"`
+	Service   string             `json:"service"`
+	ApplyMode manifest.ApplyMode `json:"applyMode"`
 	// RunName is the Cloud Run service actually written.
 	RunName      string `json:"runName,omitempty"`
 	DesiredImage string `json:"desiredImage"`
@@ -88,7 +90,8 @@ func (e *Engine) Apply(ctx context.Context, req ApplyRequest) (*ApplyResult, err
 		if err != nil {
 			return nil, err
 		}
-		item := ApplyServiceResult{Service: svc.Name, RunName: svc.RunName(), DesiredImage: svc.Image}
+		mode := svc.EffectiveApplyMode()
+		item := ApplyServiceResult{Service: svc.Name, ApplyMode: mode, RunName: svc.RunName(), DesiredImage: svc.Image}
 		if actual != nil {
 			item.ActualImage = actual.Image
 			item.InSync = actual.Image == svc.Image
@@ -96,19 +99,30 @@ func (e *Engine) Apply(ctx context.Context, req ApplyRequest) (*ApplyResult, err
 
 		// Checked before deploying, not after: the point is to stop an apply
 		// that would quietly strip settings off a running service.
-		unmanaged, err := e.CloudRun.UnmanagedSettings(ctx, env, svc)
-		if err != nil {
-			return nil, err
-		}
-		if len(unmanaged) > 0 {
-			if !req.DryRun && !req.Force {
-				return nil, &UnmanagedSettingsError{Env: env.Name, Service: svc.Name, Settings: unmanaged}
+		if mode == manifest.ApplyModeImageOnly {
+			if actual == nil {
+				return nil, fmt.Errorf("service %q in %q uses image-only apply but does not exist; create it with Terraform first", svc.Name, env.Name)
 			}
-			item.Unmanaged = unmanaged
+		} else {
+			unmanaged, err := e.CloudRun.UnmanagedSettings(ctx, env, svc)
+			if err != nil {
+				return nil, err
+			}
+			if len(unmanaged) > 0 {
+				if !req.DryRun && !req.Force {
+					return nil, &UnmanagedSettingsError{Env: env.Name, Service: svc.Name, Settings: unmanaged}
+				}
+				item.Unmanaged = unmanaged
+			}
 		}
 
 		if !req.DryRun {
-			deployed, err := e.CloudRun.Apply(ctx, env, svc, timeout)
+			var deployed *cloudrun.Deployed
+			if mode == manifest.ApplyModeImageOnly {
+				deployed, err = e.CloudRun.ApplyImage(ctx, env, svc, timeout)
+			} else {
+				deployed, err = e.CloudRun.Apply(ctx, env, svc, timeout)
+			}
 			if err != nil {
 				return nil, err
 			}

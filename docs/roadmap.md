@@ -27,6 +27,10 @@ delivery features.
 - [x] publish the GitHub Actions setup Action and reusable validation workflow
 - [x] create or update a prod promotion PR after a successful dev apply
 - [x] provide OIDC-authenticated automatic dev apply and manual-only prod apply
+- [x] accept provenance-bearing Artifact Events for auto-policy dev updates
+- [x] inspect dev readiness and emit promotion evidence before opening prod PRs
+- [x] reject stale promotion candidates and serialize PR updates per service
+- [x] support Cloud Run image-only apply for Terraform-owned services
 - [ ] prove adoption from a separate repository without automatic prod changes
 - [ ] verify GoReleaser snapshot artifacts and the container image
 - [ ] publish installation, IAM, troubleshooting, and rollback runbooks
@@ -49,7 +53,6 @@ delivery features.
 - [ ] progressive traffic rollout
 - [ ] revision-tag preview URLs
 - [ ] smoke-test and metric-driven automatic rollback
-- [ ] event-driven development manifest updates
 
 ## Release policy
 

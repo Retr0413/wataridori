@@ -10,6 +10,8 @@ import (
 	runpb "cloud.google.com/go/run/apiv2/runpb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/Retr0413/wataridori/internal/manifest"
 )
@@ -141,6 +143,53 @@ func (c *Client) Apply(ctx context.Context, env *manifest.Environment, svc *mani
 	return c.GetService(ctx, env, name)
 }
 
+// ApplyImage updates only the observed container list, with the primary
+// container image replaced by the digest from the manifest. Cloud Run field
+// masks cannot address an element inside a repeated field, so the complete
+// observed list is retained and template.containers is the narrowest valid
+// update path.
+func (c *Client) ApplyImage(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*Deployed, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	existing, err := c.services.GetService(ctx, &runpb.GetServiceRequest{Name: ServiceName(env, svc.RunName())})
+	if isNotFound(err) {
+		return nil, fmt.Errorf("service %s does not exist; image-only apply never creates services", svc.RunName())
+	}
+	if err != nil {
+		return nil, fmt.Errorf("getting service %s: %w", svc.RunName(), err)
+	}
+	req, err := BuildImageOnlyUpdate(existing, svc.Image)
+	if err != nil {
+		return nil, fmt.Errorf("building image-only update for %s: %w", svc.RunName(), err)
+	}
+	op, err := c.services.UpdateService(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("updating image of service %s: %w", svc.RunName(), err)
+	}
+	if _, err := op.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("service %s failed to become ready: %w", svc.RunName(), err)
+	}
+	return c.GetService(ctx, env, svc.RunName())
+}
+
+// BuildImageOnlyUpdate is kept pure so the preservation and field-mask
+// contract can be verified without contacting Cloud Run.
+func BuildImageOnlyUpdate(existing *runpb.Service, image string) (*runpb.UpdateServiceRequest, error) {
+	if existing == nil || existing.GetTemplate() == nil || len(existing.GetTemplate().GetContainers()) == 0 {
+		return nil, fmt.Errorf("existing service has no primary container")
+	}
+	if _, _, err := manifest.SplitDigest(image); err != nil {
+		return nil, err
+	}
+	updated := proto.Clone(existing).(*runpb.Service)
+	updated.Template.Containers[0].Image = image
+	return &runpb.UpdateServiceRequest{
+		Service:    updated,
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"template.containers"}},
+	}, nil
+}
+
 // ListRevisions returns the revisions of a service, newest first.
 func (c *Client) ListRevisions(ctx context.Context, env *manifest.Environment, service string) ([]Revision, error) {
 	svc, err := c.services.GetService(ctx, &runpb.GetServiceRequest{Name: ServiceName(env, service)})
@@ -177,12 +226,11 @@ func (c *Client) SetTraffic(ctx context.Context, env *manifest.Environment, serv
 	if err != nil {
 		return fmt.Errorf("getting service %s: %w", service, err)
 	}
-	svc.Traffic = []*runpb.TrafficTarget{{
-		Type:     runpb.TrafficTargetAllocationType_TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION,
-		Revision: revision,
-		Percent:  100,
-	}}
-	op, err := c.services.UpdateService(ctx, &runpb.UpdateServiceRequest{Service: svc})
+	req, err := BuildTrafficUpdate(svc, revision)
+	if err != nil {
+		return fmt.Errorf("building traffic update for %s: %w", service, err)
+	}
+	op, err := c.services.UpdateService(ctx, req)
 	if err != nil {
 		return fmt.Errorf("updating traffic of %s: %w", service, err)
 	}
@@ -190,6 +238,26 @@ func (c *Client) SetTraffic(ctx context.Context, env *manifest.Environment, serv
 		return fmt.Errorf("switching traffic of %s to %s: %w", service, revision, err)
 	}
 	return nil
+}
+
+// BuildTrafficUpdate returns a rollback request that owns only traffic.
+func BuildTrafficUpdate(existing *runpb.Service, revision string) (*runpb.UpdateServiceRequest, error) {
+	if existing == nil {
+		return nil, fmt.Errorf("existing service is required")
+	}
+	if revision == "" {
+		return nil, fmt.Errorf("revision is required")
+	}
+	updated := proto.Clone(existing).(*runpb.Service)
+	updated.Traffic = []*runpb.TrafficTarget{{
+		Type:     runpb.TrafficTargetAllocationType_TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION,
+		Revision: revision,
+		Percent:  100,
+	}}
+	return &runpb.UpdateServiceRequest{
+		Service:    updated,
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"traffic"}},
+	}, nil
 }
 
 // deployed resolves the revision serving the largest traffic share and its

@@ -21,9 +21,10 @@ const (
 type fakeCloudRun struct {
 	deployed   map[string]*cloudrun.Deployed // key: env/service
 	revisions  map[string][]cloudrun.Revision
-	applied    []string            // env/service actually deployed
-	traffic    map[string]string   // env/service -> pinned revision
-	applyImage map[string]string   // image recorded at Apply time
+	applied    []string          // env/service actually deployed
+	traffic    map[string]string // env/service -> pinned revision
+	applyImage map[string]string // image recorded at Apply time
+	applyMode  map[string]manifest.ApplyMode
 	unmanaged  map[string][]string // env/runName -> settings apply would drop
 }
 
@@ -33,6 +34,7 @@ func newFakeCloudRun() *fakeCloudRun {
 		revisions:  map[string][]cloudrun.Revision{},
 		traffic:    map[string]string{},
 		applyImage: map[string]string{},
+		applyMode:  map[string]manifest.ApplyMode{},
 		unmanaged:  map[string][]string{},
 	}
 }
@@ -59,6 +61,17 @@ func (f *fakeCloudRun) Apply(_ context.Context, env *manifest.Environment, svc *
 	k := key(env, svc.Name)
 	f.applied = append(f.applied, k)
 	f.applyImage[k] = svc.Image
+	f.applyMode[k] = manifest.ApplyModeFull
+	d := &cloudrun.Deployed{Service: svc.Name, Image: svc.Image, Revision: svc.Name + "-00002", Ready: true, URL: "https://" + svc.Name + ".run.app"}
+	f.deployed[k] = d
+	return d, nil
+}
+
+func (f *fakeCloudRun) ApplyImage(_ context.Context, env *manifest.Environment, svc *manifest.Service, _ time.Duration) (*cloudrun.Deployed, error) {
+	k := key(env, svc.Name)
+	f.applied = append(f.applied, k)
+	f.applyImage[k] = svc.Image
+	f.applyMode[k] = manifest.ApplyModeImageOnly
 	d := &cloudrun.Deployed{Service: svc.Name, Image: svc.Image, Revision: svc.Name + "-00002", Ready: true, URL: "https://" + svc.Name + ".run.app"}
 	f.deployed[k] = d
 	return d, nil
@@ -78,12 +91,19 @@ func (f *fakeCloudRun) SetTraffic(_ context.Context, env *manifest.Environment, 
 }
 
 type fakeCopier struct {
-	calls []string // "src -> dst"
+	calls       []string // "src -> dst"
+	verified    []string
+	verifyError error
 }
 
 func (f *fakeCopier) Copy(_ context.Context, srcRef, dstPath string) (bool, error) {
 	f.calls = append(f.calls, srcRef+" -> "+dstPath)
 	return true, nil
+}
+
+func (f *fakeCopier) Verify(_ context.Context, image string) error {
+	f.verified = append(f.verified, image)
+	return f.verifyError
 }
 
 type fakeCommitter struct {
@@ -181,6 +201,7 @@ func newTestEngine(t *testing.T, imageCopy bool) *testEngine {
 			Repo:     testRepo(t, imageCopy),
 			CloudRun: cr,
 			Copier:   cp,
+			Verifier: cp,
 			Commit:   cm,
 			History:  h,
 			Actor:    "tester@example.com",

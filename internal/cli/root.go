@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/spf13/cobra"
 
@@ -49,8 +50,10 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		newValidateCmd(g),
 		newManifestCmd(g),
+		newEventCmd(g),
 		newApplyCmd(g),
 		newPromoteCmd(g),
+		newPromotionCmd(g),
 		newRollbackCmd(g),
 		newStatusCmd(g),
 		newInventoryCmd(g),
@@ -100,7 +103,9 @@ type engineOptions struct {
 	needCloudRun bool
 	needStore    bool
 	needCopier   bool
+	needVerifier bool
 	needCommit   bool
+	needHTTP     bool
 }
 
 func (g *globalFlags) engine(cmd *cobra.Command, opts engineOptions) (*core.Engine, func(), error) {
@@ -135,11 +140,22 @@ func (g *globalFlags) engine(cmd *cobra.Command, opts engineOptions) (*core.Engi
 		closers = append(closers, func() { _ = st.Close() })
 		e.History = st
 	}
-	if opts.needCopier {
-		e.Copier = registry.NewCopier()
+	if opts.needCopier || opts.needVerifier {
+		registryClient := registry.NewCopier()
+		if opts.needCopier {
+			e.Copier = registryClient
+		}
+		if opts.needVerifier {
+			e.Verifier = registryClient
+		}
 	}
 	if opts.needCommit {
 		e.Commit = committerFunc(gitops.Commit)
+	}
+	if opts.needHTTP {
+		e.HTTP = &http.Client{CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}}
 	}
 	return e, cleanup, nil
 }

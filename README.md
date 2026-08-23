@@ -36,7 +36,8 @@ images, not image builds.
 
 ### CLI
 
-- `apply`: create or update Cloud Run services from manifests
+- `apply`: fully reconcile a service or update only its image when Terraform
+  owns the remaining Cloud Run configuration
 - `promote`: copy image digests between environment manifests and create a Git
   commit
 - `rollback`: route 100% of traffic to a previous ready revision
@@ -45,6 +46,8 @@ images, not image builds.
 - `history`: inspect locally recorded apply, promote, and rollback operations
 - JSON output and a drift-aware exit code for automation
 - Offline manifest validation and digest-only manifest updates for CI
+- Provenance-bearing Artifact Events with registry verification
+- Read-only promotion inspection with JSON and Markdown evidence
 - Reusable GitHub Actions workflows for automatic dev delivery, automatic
   production proposal PRs, and manual-only production apply
 

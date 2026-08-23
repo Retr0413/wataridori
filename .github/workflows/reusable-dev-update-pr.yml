@@ -167,7 +167,9 @@ jobs:
         run: |
           set -euo pipefail
           git add -- "$FILE"
-          git commit -m "deploy(${ENVIRONMENT}): update ${SERVICE} digest"
+          git commit -m "deploy(${ENVIRONMENT}): update ${SERVICE} digest" -m "Wataridori-Source-Repository: ${GITHUB_REPOSITORY}
+          Wataridori-Source-Commit: ${GITHUB_SHA}
+          Wataridori-Workflow-Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           git push --force-with-lease origin "HEAD:refs/heads/$BRANCH"
 
       - name: Create or update dev manifest pull request
