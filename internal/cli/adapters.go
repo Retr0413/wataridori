@@ -25,6 +25,10 @@ func (a cloudRunAdapter) Apply(ctx context.Context, env *manifest.Environment, s
 	return a.c.Apply(ctx, env, svc, timeout)
 }
 
+func (a cloudRunAdapter) ApplyImage(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*cloudrun.Deployed, error) {
+	return a.c.ApplyImage(ctx, env, svc, timeout)
+}
+
 func (a cloudRunAdapter) UnmanagedSettings(ctx context.Context, env *manifest.Environment, svc *manifest.Service) ([]string, error) {
 	return a.c.UnmanagedSettings(ctx, env, svc)
 }

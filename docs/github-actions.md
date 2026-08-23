@@ -27,6 +27,7 @@ Wataridori does not build images. Tag-only references are rejected.
 |---|---|---|
 | `actions/setup` | Install a release with checksum verification, or build a pinned source ref | runner only |
 | `reusable-validate.yml` | Validate every manifest without Git or GCP access | none |
+| `reusable-artifact-event.yml` | Verify a provenance-bearing digest and update an auto-policy dev manifest | Git only |
 | `reusable-dev-update-pr.yml` | Put an external digest in an auto-policy environment and create/update a PR | Git only |
 | `reusable-dev-deploy.yml` | Plan, apply, and verify dev with OIDC | Cloud Run dev |
 | `reusable-promotion-pr.yml` | Verify dev and create/update a prod promotion PR | Git only |
@@ -45,6 +46,14 @@ Copy the entry workflows from
 to `.github/workflows/` in the manifest repository. Change `master` if its
 protected default branch has another name.
 
+Use `artifact-event.yml` when application code and manifests share a repository
+and the bot is allowed to write the protected development branch. Use
+`deliver-digest.yml` when a reviewed dev update PR is preferable.
+
+Exclude `environments/**` (or the configured manifest directories) from the
+application image-build trigger. The bot's digest-only commit should trigger
+dev delivery, not rebuild the same application artifact.
+
 Configure these repository variables:
 
 | Variable | Meaning |
@@ -55,7 +64,7 @@ Configure these repository variables:
 | `WATARIDORI_DEV_WIF_PROVIDER` | Dev Workload Identity Provider resource |
 | `WATARIDORI_DEV_SERVICE_ACCOUNT` | Dev deploy service account |
 | `WATARIDORI_STATUS_WIF_PROVIDER` | Provider used to verify dev before proposing prod |
-| `WATARIDORI_STATUS_SERVICE_ACCOUNT` | Read-only Cloud Run service account |
+| `WATARIDORI_STATUS_SERVICE_ACCOUNT` | Read-only Cloud Run and Artifact Registry service account |
 | `WATARIDORI_PROD_WIF_PROVIDER` | Production Workload Identity Provider resource |
 | `WATARIDORI_PROD_SERVICE_ACCOUNT` | Production deploy service account |
 
@@ -71,6 +80,11 @@ The write workflows request only these permissions on each short-lived
 installation token. A GitHub App is required instead of relying on a broad PAT
 or assuming the caller repository's `GITHUB_TOKEN` can write another
 repository.
+
+Direct same-repository Artifact Events also require the GitHub App to be
+allowed by the development branch ruleset. Keep human reviews mandatory for
+production manifest paths; the Artifact Event command itself refuses every
+`policy: manual` environment.
 
 ## Protected production Environment
 
@@ -96,14 +110,21 @@ Credentials created from GitHub's OIDC token.
 ## Same-repository flow
 
 ```text
-application build -> deliver immutable digest -> dev update PR
-dev update PR merge -> automatic dev apply -> automatic prod proposal PR
+application build -> Artifact Event -> immutable dev desired-state commit
+dev desired-state commit -> automatic dev apply -> evidence-backed prod proposal PR
 prod proposal PR merge -> no deployment
 operator Run workflow -> Environment approval -> prod apply
 ```
 
-The dev update workflow requires the target environment to use `policy: auto`.
-It cannot be pointed at a manual prod environment through an input.
+The Artifact Event and dev update workflows require the target environment to
+use `policy: auto`. Neither can be pointed at a manual prod environment through
+an input. Artifact Events are direct, compare-and-swap bot commits intended for
+same-repository delivery; the existing dev update PR remains the cross-repo
+reviewed option.
+
+`reusable-promotion-pr.yml` accepts `http_paths` as a JSON array such as
+`["/health","/ready"]`. Each value is resolved only against the Cloud Run URL;
+full URLs and redirects are not accepted as health-check configuration.
 
 ## Separate GitOps repository
 
@@ -135,7 +156,7 @@ Before the first release, a pinned Action ref can build its bundled source:
 ```yaml
 - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
   with:
-    go-version: 1.26.5
+    go-version: 1.26.6
 - uses: Retr0413/wataridori/actions/setup@FULL_COMMIT_SHA
   with:
     version: source
@@ -147,6 +168,8 @@ install it unless its entry in `checksums.txt` matches.
 ## Failure and retry behavior
 
 - delivering the same digest is a no-op
+- expired events, non-ancestor source commits, and unexpected base SHAs fail
+  before a Git write
 - one deterministic bot branch and open PR is reused per environment/service
 - a new dev digest updates the existing promotion PR
 - a human-authored branch is never selected by name

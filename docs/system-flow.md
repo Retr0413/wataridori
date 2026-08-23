@@ -76,12 +76,17 @@ sequenceDiagram
 
 `--dry-run` stops after planning.
 
-Apply replaces the Cloud Run service wholesale: the manifest is the source of
-truth, so configuration it does not describe would be deleted. Apply therefore
-reads the running service first and refuses when it finds settings the manifest
-cannot express, such as probes, request timeout, VPC access, volumes, sidecars,
-or CPU throttling. `--dry-run` reports them as a warning instead of failing,
+In `full` mode, apply replaces the Cloud Run service wholesale: the manifest is
+the source of truth, so configuration it does not describe would be deleted.
+Apply therefore reads the running service first and refuses when it finds
+settings the manifest cannot express. `--dry-run` reports them as a warning,
 and `--force` proceeds while still listing what it removes.
+
+In `image-only` mode, apply requires an existing service and changes only the
+primary container image with a Cloud Run update mask. It preserves the observed
+container list and all other service fields; it neither creates services nor
+uses `--force`. Terraform or another infrastructure system remains the owner of
+non-image configuration.
 
 ## Promotion
 
@@ -110,8 +115,9 @@ sequenceDiagram
     W->>Store: record promotion
 ```
 
-The user pushes the commit and applies the target environment. PR-based
-promotion is planned for `v0.1.0`.
+The local user pushes the commit and applies the target environment. The
+GitHub Actions adapter places the same image-only manifest change in a pull
+request and never applies production from that workflow.
 
 ## GitHub Actions delivery
 
@@ -124,11 +130,12 @@ sequenceDiagram
     actor Human
     participant Prod as Cloud Run prod
 
-    CI->>Git: open dev digest update PR
-    Human->>Git: review and merge dev change
+    CI->>Git: send Artifact Event with immutable digest and provenance
+    Git->>Git: verify digest and update auto-policy dev desired state
     Git->>Dev: reusable workflow applies dev
     Dev-->>Git: ready digest and revision
-    Git->>PR: automatically create or update promotion PR
+    Git->>Git: inspect desired/actual state, traffic, registry, and HTTP
+    Git->>PR: create or update evidence-backed promotion PR
     Human->>PR: review and merge
     Note over PR,Prod: merge alone never deploys prod
     Human->>Git: manually dispatch prod apply
@@ -141,6 +148,12 @@ The application CI builds and publishes the image. Wataridori accepts only its
 immutable digest. The promotion-PR workflow may prepare Git desired state but
 must never merge the PR or call prod apply. Production has no push-, PR-,
 schedule-, or workflow-completion-triggered apply path.
+
+Artifact Event identity is derived from environment, service, digest, source
+repository, source commit, and workflow run. The workflow checks event age,
+source ancestry, expected base SHA, and current candidate identity. Duplicate
+delivery is a no-op. A stale or out-of-order candidate cannot overwrite a newer
+desired state or promotion branch.
 
 ## Rollback
 
@@ -165,6 +178,9 @@ sequenceDiagram
 Rollback may intentionally create drift because Git can still point to the
 newer image. Operators must then decide whether to revert Git or re-apply the
 desired revision.
+
+Rollback updates only the Cloud Run `traffic` field. It does not rewrite the
+revision template or take ownership of Terraform-managed service settings.
 
 ## Inventory
 

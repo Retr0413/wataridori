@@ -62,7 +62,7 @@ the Web UI display those plans before calling the execution operation.
 | `internal/core` | Apply, promotion, rollback, status, inventory, history, and timeline use cases |
 | `internal/manifest` | YAML types, loading, validation, and digest updates |
 | `internal/cloudrun` | Cloud Run Admin API v2 wrapper |
-| `internal/registry` | Digest-based registry copy |
+| `internal/registry` | Digest existence verification and digest-based registry copy |
 | `internal/gitops` | Commits and remote Git synchronization primitives |
 | `internal/store` | Local SQLite operation history |
 | `internal/server` | Connect RPC handlers and protobuf conversion |
@@ -106,9 +106,14 @@ plane. Consumer repositories own their event triggers and permissions; the
 called workflows cannot elevate them.
 
 - application CI supplies an already-built digest-pinned image
+- an Artifact Event records source repository, commit, workflow run, and digest
+- only `policy:auto` environments accept event-driven desired-state updates
 - Git changes land before the corresponding Cloud Run apply
 - dev apply may run automatically from the protected default branch
-- dev success may prepare a prod promotion branch and pull request
+- promotion inspection compares Git, Cloud Run, Artifact Registry, and bounded
+  HTTP readiness checks before a prod pull request is prepared
+- the pull request carries immutable, machine-readable promotion evidence and
+  is updated idempotently per environment and service
 - the promotion pull request is never auto-merged
 - prod apply has only a manual dispatch entrypoint, verifies that the selected
   commit belongs to the protected default branch, and uses a protected GitHub
@@ -118,6 +123,13 @@ GCP credentials are short-lived credentials obtained through GitHub OIDC and
 Workload Identity Federation. Cross-repository Git writes require a caller-
 supplied GitHub App installation token; Wataridori does not broaden the default
 `GITHUB_TOKEN` scope.
+
+Cloud Run mutation has two explicit modes. `full` reconstructs the service from
+the Wataridori manifest and retains the existing unmanaged-setting guard.
+`image-only` requires an existing service, reads it, changes only the primary
+container image, and updates the `template.containers` field. This mode lets
+Terraform remain authoritative for probes, networking, scaling, IAM, secrets,
+and other service configuration.
 
 ## Authentication boundaries
 

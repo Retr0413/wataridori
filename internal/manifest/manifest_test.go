@@ -227,6 +227,11 @@ func TestServiceValidation(t *testing.T) {
 			wantErr: "malformed digest",
 		},
 		{
+			name:    "unknown apply mode",
+			svc:     "name: app\napplyMode: replace-some\nimage: gcr.io/p/app@" + digestA + "\n",
+			wantErr: "unknown applyMode",
+		},
+		{
 			name:    "max below min",
 			svc:     "name: app\nimage: gcr.io/p/app@" + digestA + "\nscaling: {min: 5, max: 2}\n",
 			wantErr: "must be >=",

@@ -53,6 +53,9 @@ func TestCopy(t *testing.T) {
 	srcRef := srcPath + "@" + digest.String()
 	copier := &Copier{keychain: authn.DefaultKeychain}
 	ctx := context.Background()
+	if err := copier.Verify(ctx, srcRef); err != nil {
+		t.Fatalf("Verify source: %v", err)
+	}
 
 	copied, err := copier.Copy(ctx, srcRef, dstPath)
 	if err != nil {
@@ -99,5 +102,8 @@ func TestCopyMissingSource(t *testing.T) {
 	copier := &Copier{keychain: authn.DefaultKeychain}
 	if _, err := copier.Copy(context.Background(), srcRef, host+"/prod/ghost"); err == nil {
 		t.Error("missing source: want error")
+	}
+	if err := copier.Verify(context.Background(), srcRef); err == nil || !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("Verify missing source error = %v", err)
 	}
 }

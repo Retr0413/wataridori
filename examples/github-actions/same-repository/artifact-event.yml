@@ -1,0 +1,37 @@
+name: deliver-artifact-to-dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Logical Wataridori service name
+        required: true
+        type: string
+      image:
+        description: Immutable IMAGE@sha256:... published by application CI
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deliver:
+    uses: Retr0413/wataridori/.github/workflows/reusable-artifact-event.yml@master # Pin a full SHA in production.
+    with:
+      wataridori_ref: ${{ vars.WATARIDORI_SHA }}
+      manifest_owner: ${{ github.repository_owner }}
+      manifest_repository: ${{ vars.MANIFEST_REPOSITORY }}
+      github_app_id: ${{ vars.WATARIDORI_GITHUB_APP_ID }}
+      environment: dev
+      service: ${{ inputs.service }}
+      image: ${{ inputs.image }}
+      source_repository: ${{ github.repository }}
+      source_commit: ${{ github.sha }}
+      workflow_run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      expected_base_sha: ${{ github.sha }}
+      workload_identity_provider: ${{ vars.WATARIDORI_STATUS_WIF_PROVIDER }}
+      service_account: ${{ vars.WATARIDORI_STATUS_SERVICE_ACCOUNT }}
+    secrets:
+      github_app_private_key: ${{ secrets.WATARIDORI_GITHUB_APP_PRIVATE_KEY }}

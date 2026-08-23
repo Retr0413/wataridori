@@ -2,12 +2,17 @@ package core
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/Retr0413/wataridori/internal/cloudrun"
 	"github.com/Retr0413/wataridori/internal/manifest"
 	"github.com/Retr0413/wataridori/internal/store"
 )
+
+type HTTPDoer interface {
+	Do(*http.Request) (*http.Response, error)
+}
 
 // CloudRun is the slice of internal/cloudrun that the use cases consume.
 type CloudRun interface {
@@ -17,6 +22,7 @@ type CloudRun interface {
 	// project/region, including services not managed by Wataridori manifests.
 	ListServices(ctx context.Context, env *manifest.Environment) ([]cloudrun.Deployed, error)
 	Apply(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*cloudrun.Deployed, error)
+	ApplyImage(ctx context.Context, env *manifest.Environment, svc *manifest.Service, timeout time.Duration) (*cloudrun.Deployed, error)
 	// UnmanagedSettings lists configuration on the running service that the
 	// manifest cannot express, which a full-replacement apply would drop.
 	UnmanagedSettings(ctx context.Context, env *manifest.Environment, svc *manifest.Service) ([]string, error)
@@ -27,6 +33,11 @@ type CloudRun interface {
 // ImageCopier copies a digest-pinned image into a destination repository.
 type ImageCopier interface {
 	Copy(ctx context.Context, srcRef, dstPath string) (copied bool, err error)
+}
+
+// ImageVerifier proves an immutable image exists without mutating it.
+type ImageVerifier interface {
+	Verify(ctx context.Context, image string) error
 }
 
 // Committer records manifest changes as a git commit.
@@ -46,8 +57,10 @@ type Engine struct {
 	Repo     *manifest.Repo
 	CloudRun CloudRun
 	Copier   ImageCopier
+	Verifier ImageVerifier
 	Commit   Committer
 	History  History
+	HTTP     HTTPDoer
 	// Actor is recorded in history entries (ADC principal or OS user).
 	Actor string
 }

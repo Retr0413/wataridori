@@ -28,6 +28,23 @@ on:
         required: false
         default: ""
         type: string
+      source_repository:
+        required: false
+        default: ""
+        type: string
+      source_commit:
+        required: false
+        default: ""
+        type: string
+      workflow_run:
+        required: false
+        default: ""
+        type: string
+      http_paths:
+        description: JSON array of relative Cloud Run health paths
+        required: false
+        default: "[]"
+        type: string
       base_branch:
         required: false
         default: ""
@@ -54,6 +71,9 @@ jobs:
   propose:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: wataridori-promotion-${{ inputs.manifest_owner }}-${{ inputs.manifest_repository }}-${{ inputs.from_environment }}-${{ inputs.to_environment }}-${{ inputs.service }}
+      cancel-in-progress: false
     outputs:
       pull_request_url: ${{ steps.pull_request.outputs.url }}
     steps:
@@ -91,6 +111,34 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
           fetch-depth: 0
 
+      - name: Resolve artifact provenance
+        id: provenance
+        shell: bash
+        env:
+          SOURCE_REPOSITORY_INPUT: ${{ inputs.source_repository }}
+          SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
+          WORKFLOW_RUN_INPUT: ${{ inputs.workflow_run }}
+          TARGET_REPOSITORY: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+        run: |
+          set -euo pipefail
+          event_commit="$(git log -1 --format=%H --grep='^Wataridori-Source-Commit: ' || true)"
+          trailer_repository="$(git show -s --format='%(trailers:key=Wataridori-Source-Repository,valueonly)' "${event_commit:-HEAD}" | tr -d '[:space:]')"
+          trailer_commit="$(git show -s --format='%(trailers:key=Wataridori-Source-Commit,valueonly)' "${event_commit:-HEAD}" | tr -d '[:space:]')"
+          trailer_run="$(git show -s --format='%(trailers:key=Wataridori-Workflow-Run,valueonly)' "${event_commit:-HEAD}" | tr -d '[:space:]')"
+          source_repository="${SOURCE_REPOSITORY_INPUT:-${trailer_repository:-$GITHUB_REPOSITORY}}"
+          source_commit="${SOURCE_COMMIT_INPUT:-${trailer_commit:-$GITHUB_SHA}}"
+          workflow_run="${WORKFLOW_RUN_INPUT:-${trailer_run:-${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}}}"
+          [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit provenance" >&2; exit 1; }
+          if [[ "$source_repository" == "$TARGET_REPOSITORY" ]]; then
+            git merge-base --is-ancestor "$source_commit" HEAD || { echo "source commit is not part of the current manifest branch" >&2; exit 1; }
+            if [[ -n "$trailer_commit" ]]; then
+              git merge-base --is-ancestor "$trailer_commit" "$source_commit" || { echo "explicit source provenance is stale" >&2; exit 1; }
+            fi
+          fi
+          echo "repository=$source_repository" >> "$GITHUB_OUTPUT"
+          echo "commit=$source_commit" >> "$GITHUB_OUTPUT"
+          echo "workflow_run=$workflow_run" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: 1.26.6
@@ -117,24 +165,38 @@ jobs:
           workload_identity_provider: ${{ inputs.workload_identity_provider }}
           service_account: ${{ inputs.service_account }}
 
-      - name: Verify dev is serving Git desired state
-        shell: bash
-        env:
-          FROM_ENVIRONMENT: ${{ inputs.from_environment }}
-        run: |
-          set -euo pipefail
-          wataridori status --env "$FROM_ENVIRONMENT" --check --json > "$RUNNER_TEMP/dev-status.json"
-          cat "$RUNNER_TEMP/dev-status.json"
-
-      - name: Plan production promotion without mutation
+      - name: Inspect promotion eligibility and plan without mutation
         id: plan
         shell: bash
         env:
           FROM_ENVIRONMENT: ${{ inputs.from_environment }}
           TO_ENVIRONMENT: ${{ inputs.to_environment }}
           SERVICE: ${{ inputs.service }}
+          SOURCE_REPOSITORY_INPUT: ${{ steps.provenance.outputs.repository }}
+          SOURCE_COMMIT_INPUT: ${{ steps.provenance.outputs.commit }}
+          WORKFLOW_RUN_INPUT: ${{ steps.provenance.outputs.workflow_run }}
+          HTTP_PATHS: ${{ inputs.http_paths }}
         run: |
           set -euo pipefail
+          source_repository="${SOURCE_REPOSITORY_INPUT:-$GITHUB_REPOSITORY}"
+          source_commit="${SOURCE_COMMIT_INPUT:-$GITHUB_SHA}"
+          workflow_run="${WORKFLOW_RUN_INPUT:-${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}}"
+          jq -e 'type == "array" and all(.[]; type == "string")' <<< "$HTTP_PATHS" >/dev/null
+          inspect=(promotion check --from "$FROM_ENVIRONMENT" --to "$TO_ENVIRONMENT" --source-repository "$source_repository" --source-commit "$source_commit" --workflow-run "$workflow_run" --summary-file "$RUNNER_TEMP/promotion-evidence.md" --json)
+          [[ -z "$SERVICE" ]] || inspect+=(--service "$SERVICE")
+          while IFS= read -r path; do inspect+=(--http-path "$path"); done < <(jq -r '.[]' <<< "$HTTP_PATHS")
+          wataridori "${inspect[@]}" > "$RUNNER_TEMP/promotion-evidence.json"
+          cat "$RUNNER_TEMP/promotion-evidence.json"
+          cat "$RUNNER_TEMP/promotion-evidence.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "evidence_id=$(jq -r .evidenceId "$RUNNER_TEMP/promotion-evidence.json")" >> "$GITHUB_OUTPUT"
+          if [[ "$(jq -r .noop "$RUNNER_TEMP/promotion-evidence.json")" == "true" ]]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          jq -e '.eligible == true' "$RUNNER_TEMP/promotion-evidence.json" >/dev/null || {
+            echo "promotion candidate is not eligible" >&2
+            exit 1
+          }
           args=(promote --from "$FROM_ENVIRONMENT" --to "$TO_ENVIRONMENT" --dry-run --json)
           [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
           wataridori "${args[@]}" > "$RUNNER_TEMP/promotion-plan.json"
@@ -154,21 +216,32 @@ jobs:
           FROM_ENVIRONMENT: ${{ inputs.from_environment }}
           TO_ENVIRONMENT: ${{ inputs.to_environment }}
           SERVICE: ${{ inputs.service }}
+          SOURCE_REPOSITORY: ${{ steps.provenance.outputs.repository }}
+          SOURCE_COMMIT: ${{ steps.provenance.outputs.commit }}
         run: |
           set -euo pipefail
           suffix="$(printf '%s-%s-%s' "$FROM_ENVIRONMENT" "$TO_ENVIRONMENT" "${SERVICE:-all}" | tr -c 'A-Za-z0-9._-' '-')"
           branch="wataridori/promote-${suffix}"
+          remote_sha=""
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             git fetch origin "$branch:refs/remotes/origin/$branch"
+            remote_sha="$(git rev-parse "origin/$branch")"
             [[ "$(git log -1 --format=%ae "origin/$branch")" == "wataridori[bot]@users.noreply.github.com" ]] || {
               echo "refusing to overwrite non-Wataridori branch $branch" >&2
               exit 1
             }
+            old_source="$(git log -1 --format='%(trailers:key=Wataridori-Source-Commit,valueonly)' "origin/$branch" | tr -d '[:space:]')"
+            candidate="${SOURCE_COMMIT:-$GITHUB_SHA}"
+            if [[ -n "$old_source" && "$SOURCE_REPOSITORY" == "$GITHUB_REPOSITORY" ]]; then
+              git merge-base --is-ancestor "$old_source" "$candidate" || { echo "refusing stale or out-of-order promotion candidate" >&2; exit 1; }
+            fi
           fi
           git checkout -B "$branch" "origin/$BASE_BRANCH"
           git config user.name "wataridori[bot]"
           git config user.email "wataridori[bot]@users.noreply.github.com"
           echo "name=$branch" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "remote_sha=$remote_sha" >> "$GITHUB_OUTPUT"
 
       - name: Commit promotion and push bot branch
         if: steps.plan.outputs.count != '0'
@@ -180,13 +253,30 @@ jobs:
           BRANCH: ${{ steps.branch.outputs.name }}
           WATARIDORI_ACTOR: github:${{ github.actor }}
           WATARIDORI_DB: ${{ runner.temp }}/wataridori-history.db
+          BASE_BRANCH: ${{ steps.target.outputs.base }}
+          BASE_SHA: ${{ steps.branch.outputs.base_sha }}
+          REMOTE_SHA: ${{ steps.branch.outputs.remote_sha }}
+          EVIDENCE_ID: ${{ steps.plan.outputs.evidence_id }}
+          SOURCE_REPOSITORY_INPUT: ${{ steps.provenance.outputs.repository }}
+          SOURCE_COMMIT_INPUT: ${{ steps.provenance.outputs.commit }}
+          WORKFLOW_RUN_INPUT: ${{ steps.provenance.outputs.workflow_run }}
         run: |
           set -euo pipefail
           args=(promote --from "$FROM_ENVIRONMENT" --to "$TO_ENVIRONMENT" --yes --json)
           [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
           wataridori "${args[@]}" > "$RUNNER_TEMP/promotion-result.json"
           cat "$RUNNER_TEMP/promotion-result.json"
-          git push --force-with-lease origin "HEAD:refs/heads/$BRANCH"
+          source_repository="${SOURCE_REPOSITORY_INPUT:-$GITHUB_REPOSITORY}"
+          source_commit="${SOURCE_COMMIT_INPUT:-$GITHUB_SHA}"
+          workflow_run="${WORKFLOW_RUN_INPUT:-${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}}"
+          git commit --amend --no-edit \
+            --trailer "Wataridori-Evidence-ID: $EVIDENCE_ID" \
+            --trailer "Wataridori-Source-Repository: $source_repository" \
+            --trailer "Wataridori-Source-Commit: $source_commit" \
+            --trailer "Wataridori-Workflow-Run: $workflow_run"
+          git fetch origin "$BASE_BRANCH"
+          [[ "$(git rev-parse FETCH_HEAD)" == "$BASE_SHA" ]] || { echo "base branch moved; candidate evidence is stale" >&2; exit 1; }
+          git push --force-with-lease="refs/heads/$BRANCH:$REMOTE_SHA" origin "HEAD:refs/heads/$BRANCH"
 
       - name: Create or update production promotion pull request
         if: steps.plan.outputs.count != '0'
@@ -200,6 +290,7 @@ jobs:
           FROM_ENVIRONMENT: ${{ inputs.from_environment }}
           TO_ENVIRONMENT: ${{ inputs.to_environment }}
           SERVICE: ${{ inputs.service }}
+          EVIDENCE_ID: ${{ steps.plan.outputs.evidence_id }}
         run: |
           set -euo pipefail
           body="$RUNNER_TEMP/promotion-pr.md"
@@ -208,10 +299,13 @@ jobs:
             echo
             echo "Source: \`$FROM_ENVIRONMENT\`"
             echo "Target: \`$TO_ENVIRONMENT\`"
+            echo "Evidence: \`$EVIDENCE_ID\`"
             echo
             jq -r '.items[] | "- `\(.service)`: `\(.oldImage)` → `\(.newImage)`"' "$RUNNER_TEMP/promotion-plan.json"
             echo
             echo "Dev verification run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            cat "$RUNNER_TEMP/promotion-evidence.md"
             echo
             echo "This PR never merges or deploys itself. After human review and merge, prod apply still requires a manual workflow dispatch and protected Environment approval."
           } > "$body"

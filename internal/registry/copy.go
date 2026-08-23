@@ -28,6 +28,22 @@ func NewCopier() *Copier {
 	return &Copier{keychain: keychain}
 }
 
+// Verify proves that a digest-pinned reference exists in its registry.
+func (c *Copier) Verify(ctx context.Context, image string) error {
+	ref, err := name.NewDigest(image)
+	if err != nil {
+		return fmt.Errorf("image must be digest-pinned: %w", err)
+	}
+	exists, err := c.exists(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("verifying %s: %w", ref, err)
+	}
+	if !exists {
+		return fmt.Errorf("image %s does not exist", ref)
+	}
+	return nil
+}
+
 // Copy ensures the image at srcRef ("REPO/IMAGE@sha256:HEX") exists in the
 // dstPath repository ("REPO/IMAGE", no tag or digest) under the same digest.
 // It returns whether a copy was performed; false means the digest was
