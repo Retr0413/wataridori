@@ -135,9 +135,11 @@ jobs:
               git merge-base --is-ancestor "$trailer_commit" "$source_commit" || { echo "explicit source provenance is stale" >&2; exit 1; }
             fi
           fi
-          echo "repository=$source_repository" >> "$GITHUB_OUTPUT"
-          echo "commit=$source_commit" >> "$GITHUB_OUTPUT"
-          echo "workflow_run=$workflow_run" >> "$GITHUB_OUTPUT"
+          {
+            echo "repository=$source_repository"
+            echo "commit=$source_commit"
+            echo "workflow_run=$workflow_run"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -239,9 +241,11 @@ jobs:
           git checkout -B "$branch" "origin/$BASE_BRANCH"
           git config user.name "wataridori[bot]"
           git config user.email "wataridori[bot]@users.noreply.github.com"
-          echo "name=$branch" >> "$GITHUB_OUTPUT"
-          echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "remote_sha=$remote_sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "name=$branch"
+            echo "base_sha=$(git rev-parse HEAD)"
+            echo "remote_sha=$remote_sha"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Commit promotion and push bot branch
         if: steps.plan.outputs.count != '0'

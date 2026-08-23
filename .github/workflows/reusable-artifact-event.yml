@@ -175,9 +175,11 @@ jobs:
           [[ -z "$OCCURRED_AT" ]] || args+=(--occurred-at "$OCCURRED_AT")
           wataridori "${args[@]}" > "$RUNNER_TEMP/artifact-event.json"
           cat "$RUNNER_TEMP/artifact-event.json"
-          echo "changed=$(jq -r .changed "$RUNNER_TEMP/artifact-event.json")" >> "$GITHUB_OUTPUT"
-          echo "event_id=$(jq -r .eventId "$RUNNER_TEMP/artifact-event.json")" >> "$GITHUB_OUTPUT"
-          echo "file=$(jq -r .file "$RUNNER_TEMP/artifact-event.json")" >> "$GITHUB_OUTPUT"
+          {
+            echo "changed=$(jq -r .changed "$RUNNER_TEMP/artifact-event.json")"
+            echo "event_id=$(jq -r .eventId "$RUNNER_TEMP/artifact-event.json")"
+            echo "file=$(jq -r .file "$RUNNER_TEMP/artifact-event.json")"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Commit desired-state update
         if: steps.event.outputs.changed == 'true'
