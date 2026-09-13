@@ -7,6 +7,10 @@ on:
         description: Full 40-character Wataridori commit SHA to install
         required: true
         type: string
+      delivery_profile:
+        description: manual (default) or opt-in merge-approved
+        default: manual
+        type: string
       manifest_owner:
         required: true
         type: string
@@ -15,6 +19,10 @@ on:
         type: string
       github_app_id:
         required: true
+        type: string
+      admission_app_id:
+        description: Optional read-only source evidence App; defaults to the source repository owner
+        default: ''
         type: string
       from_environment:
         required: false
@@ -59,6 +67,11 @@ on:
     secrets:
       github_app_private_key:
         required: true
+      admission_token:
+        description: Read access to source workflow/check evidence for merge-approved
+        required: false
+      admission_app_private_key:
+        required: false
     outputs:
       pull_request_url:
         value: ${{ jobs.propose.outputs.pull_request_url }}
@@ -140,6 +153,56 @@ jobs:
             echo "commit=$source_commit"
             echo "workflow_run=$workflow_run"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Validate delivery profile
+        shell: bash
+        env:
+          DELIVERY_PROFILE: ${{ inputs.delivery_profile }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          [[ "$DELIVERY_PROFILE" == manual || "$DELIVERY_PROFILE" == merge-approved ]]
+          [[ "$DELIVERY_PROFILE" == manual || -n "$SERVICE" ]]
+
+      - name: Resolve source token scope
+        id: source_scope
+        if: inputs.delivery_profile == 'merge-approved' && inputs.admission_app_id != ''
+        shell: bash
+        env:
+          SOURCE_REPOSITORY: ${{ steps.provenance.outputs.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
+          echo "owner=${SOURCE_REPOSITORY%%/*}" >> "$GITHUB_OUTPUT"
+          echo "repository=${SOURCE_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Mint read-only evidence token
+        id: admission_token
+        if: inputs.delivery_profile == 'merge-approved' && inputs.admission_app_id != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ inputs.admission_app_id }}
+          private-key: ${{ secrets.admission_app_private_key }}
+          owner: ${{ steps.source_scope.outputs.owner }}
+          repositories: ${{ steps.source_scope.outputs.repository }}
+          permission-contents: read
+          permission-actions: read
+          permission-checks: read
+          permission-pull-requests: read
+
+      - name: Checkout pinned merge-approved adapter
+        if: inputs.delivery_profile == 'merge-approved'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Retr0413/wataridori
+          ref: ${{ inputs.wataridori_ref }}
+          path: _wataridori-tool
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: inputs.delivery_profile == 'merge-approved'
+        with:
+          node-version: 22
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -264,12 +327,22 @@ jobs:
           SOURCE_REPOSITORY_INPUT: ${{ steps.provenance.outputs.repository }}
           SOURCE_COMMIT_INPUT: ${{ steps.provenance.outputs.commit }}
           WORKFLOW_RUN_INPUT: ${{ steps.provenance.outputs.workflow_run }}
+          DELIVERY_PROFILE: ${{ inputs.delivery_profile }}
+          GH_TOKEN: ${{ steps.admission_token.outputs.token || secrets.admission_token }}
+          TARGET_REPOSITORY: ${{ inputs.manifest_owner }}/${{ inputs.manifest_repository }}
+          ENVIRONMENT: ${{ inputs.to_environment }}
+          EVIDENCE_FILE: ${{ runner.temp }}/promotion-evidence.json
+          SUMMARY_FILE: ${{ runner.temp }}/release-summary.md
         run: |
           set -euo pipefail
           args=(promote --from "$FROM_ENVIRONMENT" --to "$TO_ENVIRONMENT" --yes --json)
           [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
           wataridori "${args[@]}" > "$RUNNER_TEMP/promotion-result.json"
           cat "$RUNNER_TEMP/promotion-result.json"
+          if [[ "$DELIVERY_PROFILE" == merge-approved ]]; then
+            node "$GITHUB_WORKSPACE/_wataridori-tool/actions/delivery/run.mjs" prepare
+            git add -- ".wataridori/plans/$TO_ENVIRONMENT/$SERVICE.json"
+          fi
           source_repository="${SOURCE_REPOSITORY_INPUT:-$GITHUB_REPOSITORY}"
           source_commit="${SOURCE_COMMIT_INPUT:-$GITHUB_SHA}"
           workflow_run="${WORKFLOW_RUN_INPUT:-${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}}"
@@ -295,10 +368,17 @@ jobs:
           TO_ENVIRONMENT: ${{ inputs.to_environment }}
           SERVICE: ${{ inputs.service }}
           EVIDENCE_ID: ${{ steps.plan.outputs.evidence_id }}
+          DELIVERY_PROFILE: ${{ inputs.delivery_profile }}
         run: |
           set -euo pipefail
           body="$RUNNER_TEMP/promotion-pr.md"
           {
+            if [[ "$DELIVERY_PROFILE" == merge-approved ]]; then
+              cat "$RUNNER_TEMP/release-summary.md"
+              echo
+              echo '<details><summary>Proposal workflow evidence</summary>'
+              echo
+            fi
             echo "## Wataridori production promotion proposal"
             echo
             echo "Source: \`$FROM_ENVIRONMENT\`"
@@ -311,7 +391,11 @@ jobs:
             echo
             cat "$RUNNER_TEMP/promotion-evidence.md"
             echo
-            echo "This PR never merges or deploys itself. After human review and merge, prod apply still requires a manual workflow dispatch and protected Environment approval."
+            if [[ "$DELIVERY_PROFILE" == merge-approved ]]; then
+              echo '</details>'
+            else
+              echo "After human review and merge, run the manual prod apply workflow. Follow the consumer Runbook for the configured GitHub Environment approval requirements."
+            fi
           } > "$body"
           title="promote(${TO_ENVIRONMENT}): ${SERVICE:-all services} from ${FROM_ENVIRONMENT}"
           number="$(gh pr list --repo "$TARGET_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number // empty')"

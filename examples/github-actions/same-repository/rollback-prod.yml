@@ -1,0 +1,24 @@
+# Creates a recovery PR only. A human must review and merge it before delivery.
+name: rollback-prod
+on:
+  workflow_dispatch:
+    inputs:
+      verified_release_pr:
+        description: Previous successful release PR number (not the failed release)
+        required: true
+        type: number
+permissions:
+  contents: read
+jobs:
+  propose:
+    uses: Retr0413/wataridori/.github/workflows/reusable-rollback-pr.yml@0000000000000000000000000000000000000000
+    with:
+      wataridori_ref: '0000000000000000000000000000000000000000'
+      environment: prod
+      service: api
+      verified_release_pr: ${{ inputs.verified_release_pr }}
+      github_app_id: ${{ vars.WATARIDORI_APP_ID }}
+      admission_app_id: ${{ vars.WATARIDORI_ADMISSION_APP_ID }}
+    secrets:
+      github_app_private_key: ${{ secrets.WATARIDORI_APP_PRIVATE_KEY }}
+      admission_app_private_key: ${{ secrets.WATARIDORI_ADMISSION_APP_PRIVATE_KEY }}

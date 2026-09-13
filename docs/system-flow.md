@@ -146,8 +146,13 @@ sequenceDiagram
 
 The application CI builds and publishes the image. Wataridori accepts only its
 immutable digest. The promotion-PR workflow may prepare Git desired state but
-must never merge the PR or call prod apply. Production has no push-, PR-,
-schedule-, or workflow-completion-triggered apply path.
+must never merge the PR or call prod apply. This remains the default `manual`
+profile. The opt-in `merge-approved` adapter accepts a default-branch push only
+when it resolves to a reviewed merged release PR. It fixes the reviewed plan,
+checks live authorization and freshness, verifies Dev, applies Prod, and checks
+the actual serving digest, Ready, traffic and configured HTTP endpoints.
+See [merge-approved delivery](merge-approved-delivery.md). A merge is an
+authorization, not proof of deployment success.
 
 Artifact Event identity is derived from environment, service, digest, source
 repository, source commit, and workflow run. The workflow checks event age,

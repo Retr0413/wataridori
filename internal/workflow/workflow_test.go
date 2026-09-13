@@ -19,6 +19,8 @@ var reusableFiles = []string{
 	"reusable-dev-deploy.yml",
 	"reusable-promotion-pr.yml",
 	"reusable-prod-apply.yml",
+	"reusable-prod-merge.yml",
+	"reusable-rollback-pr.yml",
 }
 
 func root(t *testing.T) string {
@@ -103,6 +105,43 @@ func TestProductionEntryPointsAreManualOnly(t *testing.T) {
 	example := parse(t, read(t, "examples", "github-actions", "same-repository", "deploy-prod.yml"))
 	if got := mappingKeys(t, mappingValue(t, example, "on")); strings.Join(got, ",") != "workflow_dispatch" {
 		t.Fatalf("consumer prod triggers = %v, want workflow_dispatch only", got)
+	}
+}
+
+func TestMergeApprovedProfileKeepsItsSeparateAdmissionBoundary(t *testing.T) {
+	prod := string(read(t, ".github", "workflows", "reusable-prod-merge.yml"))
+	manual := string(read(t, ".github", "workflows", "reusable-prod-apply.yml"))
+	lock := "group: ${{ github.repository }}-wataridori-${{ inputs.environment }}"
+	for _, text := range []string{prod, manual} {
+		if !strings.Contains(text, lock) {
+			t.Error("both profiles must share the environment deployment lock")
+		}
+	}
+	for _, required := range []string{
+		`GITHUB_EVENT_NAME" == push`, "ref: ${{ github.sha }}",
+		"repository: Retr0413/wataridori", "ref: ${{ inputs.wataridori_ref }}",
+		"--require-policy manual", "delivery preflight", "run.mjs verify-dev",
+		"run.mjs verify-prod", "DELIVERY_STATE: merged_waiting_apply",
+	} {
+		if !strings.Contains(prod, required) {
+			t.Errorf("merge-approved workflow missing guard %q", required)
+		}
+	}
+	if strings.Count(prod, "run.mjs admit") != 2 {
+		t.Error("admission must run initially and again immediately before apply")
+	}
+	if strings.Index(prod, "run.mjs admit") > strings.Index(prod, "google-github-actions/auth@") {
+		t.Error("admission must precede obtaining GCP credentials")
+	}
+	rollback := string(read(t, ".github", "workflows", "reusable-rollback-pr.yml"))
+	if !strings.Contains(rollback, `GITHUB_EVENT_NAME" == workflow_dispatch`) ||
+		strings.Contains(rollback, "wataridori apply") || strings.Contains(rollback, "google-github-actions/auth@") {
+		t.Error("rollback proposals require manual request and must not obtain GCP credentials or apply")
+	}
+	promotion := parse(t, read(t, ".github", "workflows", "reusable-promotion-pr.yml"))
+	inputs := mappingValue(t, mappingValue(t, mappingValue(t, promotion, "on"), "workflow_call"), "inputs")
+	if mappingValue(t, mappingValue(t, inputs, "delivery_profile"), "default").Value != "manual" {
+		t.Error("existing consumers must remain manual by default")
 	}
 }
 

@@ -1,0 +1,184 @@
+name: reusable-wataridori-prod-merge
+
+on:
+  workflow_call:
+    inputs:
+      wataridori_ref:
+        description: Same full SHA as this reusable workflow
+        required: true
+        type: string
+      environment:
+        default: prod
+        type: string
+      service:
+        description: One logical image-only service
+        required: true
+        type: string
+      github_environment:
+        default: production
+        type: string
+      workload_identity_provider:
+        required: true
+        type: string
+      service_account:
+        description: Production deploy identity with read access to Dev and Artifact Registry
+        required: true
+        type: string
+      admission_app_id:
+        description: Read-only GitHub App used to mint a fresh admission token
+        default: ''
+        type: string
+      admission_repositories:
+        description: Optional newline-separated manifest/source repository names under the consumer owner
+        default: ''
+        type: string
+    secrets:
+      admission_token:
+        description: Optional externally minted token instead of admission App credentials
+        required: false
+      admission_app_private_key:
+        required: false
+      delivery_webhook:
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+  checks: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: ${{ inputs.github_environment }}
+    concurrency:
+      group: ${{ github.repository }}-wataridori-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      SERVICE: ${{ inputs.service }}
+      WATARIDORI_REF: ${{ inputs.wataridori_ref }}
+      WATARIDORI_ACTOR: github:${{ github.actor }}
+    steps:
+      - name: Validate caller and pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == push ]]
+          [[ "$WATARIDORI_REF" =~ ^[0-9a-f]{40}$ ]]
+          {
+            echo "ADMISSION_FILE=$RUNNER_TEMP/delivery-admission.json"
+            echo "VERIFICATION_FILE=$RUNNER_TEMP/delivery-verification.json"
+            echo "WATARIDORI_DB=$RUNNER_TEMP/wataridori-history.db"
+          } >> "$GITHUB_ENV"
+      - name: Mint read-only admission token
+        id: admission_token
+        if: inputs.admission_app_id != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ inputs.admission_app_id }}
+          private-key: ${{ secrets.admission_app_private_key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.admission_repositories || github.event.repository.name }}
+          permission-administration: read
+          permission-contents: read
+          permission-actions: read
+          permission-checks: read
+          permission-pull-requests: read
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Checkout trusted delivery implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Retr0413/wataridori
+          ref: ${{ inputs.wataridori_ref }}
+          path: _wataridori-tool
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.6
+          cache: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Build CLI from the workflow pin
+        working-directory: _wataridori-tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$WATARIDORI_REF" ]]
+          mkdir -p "$RUNNER_TEMP/wataridori-bin"
+          go build -o "$RUNNER_TEMP/wataridori-bin/wataridori" ./cmd/wataridori
+          echo "$RUNNER_TEMP/wataridori-bin" >> "$GITHUB_PATH"
+      - name: Admit the reviewed merged plan
+        id: admit
+        env:
+          GH_TOKEN: ${{ steps.admission_token.outputs.token || secrets.admission_token }}
+        run: node _wataridori-tool/actions/delivery/run.mjs admit
+      - name: Publish admitted plan waiting for apply
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELIVERY_STATE: merged_waiting_apply
+        run: node _wataridori-tool/actions/delivery/run.mjs report
+      - name: Authenticate with OIDC
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ inputs.workload_identity_provider }}
+          service_account: ${{ inputs.service_account }}
+      - name: Verify the selected artifact in Dev
+        run: node _wataridori-tool/actions/delivery/run.mjs verify-dev
+      - name: Probe deploy permissions without mutation
+        shell: bash
+        run: wataridori delivery preflight --env "$ENVIRONMENT" --service "$SERVICE" --json
+      - name: Plan production apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          wataridori apply --env "$ENVIRONMENT" --service "$SERVICE" --require-policy manual --dry-run --json
+      - name: Publish deploying
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELIVERY_STATE: deploying
+        run: node _wataridori-tool/actions/delivery/run.mjs report
+      - name: Revalidate admission immediately before mutation
+        env:
+          GH_TOKEN: ${{ steps.admission_token.outputs.token || secrets.admission_token }}
+        run: node _wataridori-tool/actions/delivery/run.mjs admit
+      - name: Apply only the admitted service
+        id: apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          node _wataridori-tool/actions/delivery/run.mjs verify-dev
+          if node _wataridori-tool/actions/delivery/run.mjs verify-prod; then
+            echo "Selected artifact already verified; duplicate delivery is a no-op."
+          else
+            wataridori apply --env "$ENVIRONMENT" --service "$SERVICE" --require-policy manual --json
+          fi
+      - name: Verify production
+        id: verify
+        run: node _wataridori-tool/actions/delivery/run.mjs verify-prod
+      - name: Observe actual state after a partial failure
+        if: failure() && steps.apply.outcome == 'failure'
+        continue-on-error: true
+        run: node _wataridori-tool/actions/delivery/run.mjs verify-prod
+      - name: Publish final delivery result
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELIVERY_WEBHOOK: ${{ secrets.delivery_webhook }}
+          DELIVERY_STATE: ${{ steps.verify.outcome == 'success' && 'verified' || steps.apply.outcome == 'skipped' && 'blocked' || 'failed' }}
+        shell: bash
+        run: |
+          if [[ -f "$ADMISSION_FILE" ]]; then
+            node _wataridori-tool/actions/delivery/run.mjs report
+          else
+            echo 'Delivery blocked before a valid merged release could be identified. Inspect the failed step.' >> "$GITHUB_STEP_SUMMARY"
+          fi

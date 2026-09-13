@@ -38,6 +38,20 @@ delivery features.
 
 ## v1.0: safe hosted operation
 
+### Opt-in merge-approved Actions delivery (#94)
+
+- [x] versioned release plan, byte-level image-only diff and live GitHub admission
+- [x] source workflow/check gates and read-only GitHub/GCP permission diagnostics
+- [x] dedicated merge-triggered production workflow, fixed digest and stale-run rejection
+- [x] production HTTP/readiness verification, PR result Check/comment and optional webhook
+- [x] release change summary and explicit verified-release rollback PR workflow
+- [ ] real GitHub/private-consumer and dedicated GCP acceptance (#74)
+- [ ] frozen review candidates / batching (#98)
+
+These implementation checks do not mark #94 complete before real acceptance.
+
+### Hosted operation
+
 - [ ] wire remote Git clone/fetch into the controller
 - [ ] authenticate and authorize Web and RPC requests
 - [ ] route remote CLI operations through Connect RPC

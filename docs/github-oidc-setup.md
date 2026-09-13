@@ -56,10 +56,21 @@ permissions:
 ```
 
 Reusable workflows cannot elevate permissions omitted by the caller. The
-production caller must also use the protected `production` Environment and
+default manual production caller must also use the protected `production` Environment and
 must retain `workflow_dispatch` as its only trigger.
 
-## Verification
+The opt-in [merge-approved profile](merge-approved-delivery.md) has a separate
+`push` caller and dedicated production identity. Do not broaden the manual
+identity's trust to enable it. Restrict the new provider to the exact consumer,
+protected default branch, `production` Environment, `push` event and pinned
+reusable workflow (`job_workflow_ref`). Map the extra claims if using attribute
+bindings, and verify actual emitted claims before activating the provider.
+The new deploy identity also needs read access to Dev and the selected artifact;
+the proposal status reader needs Prod read access for release comparisons.
+Admission validates GitHub protection before OIDC, and read-only deploy preflight
+tests effective permissions after OIDC. Neither check replaces the WIF boundary.
+
+## Default manual profile verification
 
 1. Open a dev manifest PR and confirm validation has no OIDC permission.
 2. Merge it and confirm only the dev service account is impersonated.
@@ -69,3 +80,8 @@ must retain `workflow_dispatch` as its only trigger.
 6. Confirm GitHub pauses for Environment approval before the job runs.
 7. Approve and verify the resulting Cloud Run revision matches the reviewed
    digest.
+
+For merge-approved acceptance, use the separate-repository checklist in
+[merge-approved delivery](merge-approved-delivery.md#release-acceptance), including
+denied branch/event/workflow identities and stale plans. A local unit test cannot
+prove that the deployed WIF policy enforces these restrictions.
