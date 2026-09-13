@@ -115,9 +115,15 @@ called workflows cannot elevate them.
 - the pull request carries immutable, machine-readable promotion evidence and
   is updated idempotently per environment and service
 - the promotion pull request is never auto-merged
-- prod apply has only a manual dispatch entrypoint, verifies that the selected
-  commit belongs to the protected default branch, and uses a protected GitHub
-  Environment
+- the existing prod workflow retains its manual-dispatch-only entrypoint
+- a separate opt-in merge-approved adapter verifies an approved merged plan,
+  live GitHub protections, source CI, and Dev health before applying its fixed
+  digest; both paths use a GitHub Environment and the same environment lock
+
+The merge-approved adapter's dependency-free Node scripts run from the same
+pinned Wataridori checkout as the Go CLI. They handle GitHub admission and result
+publication; manifest snapshots and Cloud Run health verification stay in the Go
+binary. Consumer code and PR text are never executed as admission logic.
 
 GCP credentials are short-lived credentials obtained through GitHub OIDC and
 Workload Identity Federation. Cross-repository Git writes require a caller-

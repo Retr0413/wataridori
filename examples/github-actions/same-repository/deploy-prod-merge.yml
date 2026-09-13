@@ -1,0 +1,28 @@
+# Opt-in alternative to deploy-prod.yml. Replace every SHA and resource value.
+# Keep both production workflows on the same repository/environment lock.
+name: deploy-prod-merge
+on:
+  push:
+    branches: [main]
+    paths:
+      - environments/prod/api.yaml
+      - .wataridori/plans/prod/api.json
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+  checks: write
+  id-token: write
+jobs:
+  prod:
+    uses: Retr0413/wataridori/.github/workflows/reusable-prod-merge.yml@0000000000000000000000000000000000000000
+    with:
+      wataridori_ref: '0000000000000000000000000000000000000000'
+      environment: prod
+      service: api
+      admission_app_id: ${{ vars.WATARIDORI_ADMISSION_APP_ID }}
+      workload_identity_provider: projects/123456789/locations/global/workloadIdentityPools/github/providers/github
+      service_account: prod-deployer@example-project.iam.gserviceaccount.com
+    secrets:
+      admission_app_private_key: ${{ secrets.WATARIDORI_ADMISSION_APP_PRIVATE_KEY }}
+      delivery_webhook: ${{ secrets.WATARIDORI_DELIVERY_WEBHOOK }}

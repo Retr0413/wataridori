@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "environments": {
+    "prod": {
+      "profile": "merge-approved",
+      "sourceRepository": "example/application",
+      "sourceWorkflowId": 12345,
+      "maxAgeSeconds": 3600,
+      "requiredChecks": [{"name": "backend-tests", "appId": 15368}, {"name": "business-e2e", "appId": 15368}],
+      "prChecks": [{"name": "validate-release", "appId": 15368}],
+      "devHTTPPaths": ["/health", "/ready"],
+      "prodHTTPPaths": ["/health", "/ready"]
+    }
+  }
+}

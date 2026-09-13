@@ -49,7 +49,9 @@ images, not image builds.
 - Provenance-bearing Artifact Events with registry verification
 - Read-only promotion inspection with JSON and Markdown evidence
 - Reusable GitHub Actions workflows for automatic dev delivery, automatic
-  production proposal PRs, and manual-only production apply
+  production proposal PRs, and manual production apply
+- Opt-in human-merge-approved production delivery with quality gates,
+  post-deploy verification, result webhooks, and reviewed rollback PRs
 
 ### Server and Web UI
 
@@ -66,18 +68,20 @@ images, not image builds.
 
 - Authentication and authorization for the Web UI and RPC API
 - Shared, durable audit storage for a multi-instance Cloud Run deployment
-- Approval gates
-- Slack and generic webhook notifications
+- Server-side approval gates (the Actions adapter supports PR approval)
+- Server-side notifications and native Slack integration
 - A fully wired remote Git clone/pull loop for the controller
 - Progressive delivery and automatic rollback
 
 See the [roadmap](docs/roadmap.md) for the release plan.
 
 To consume Wataridori from another repository, see the
-[GitHub Actions CD guide](docs/github-actions.md). The supplied workflows may
-prepare a production promotion PR automatically, but they never merge it or
-deploy production without a separate manual dispatch and protected Environment
-approval.
+[GitHub Actions CD guide](docs/github-actions.md). By default, production requires
+a separate manual dispatch and protected Environment approval. The experimental
+[merge-approved profile](docs/merge-approved-delivery.md) instead treats a human
+review and merge as authorization for the exact release plan. Neither profile
+automatically approves or merges PRs; real-environment acceptance of the new
+profile remains outstanding.
 
 ## Install from source
 

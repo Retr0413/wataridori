@@ -6,7 +6,7 @@ immutable `IMAGE@sha256:...`; Wataridori validates Git desired state, applies
 dev, prepares a production promotion pull request, and waits for explicit
 human actions before production.
 
-## Safety contract
+## Default manual profile
 
 The production boundary is intentional and must not be weakened in consumer
 workflows:
@@ -21,6 +21,11 @@ workflows:
 
 Wataridori does not build images. Tag-only references are rejected.
 
+An explicit `merge-approved` profile is available through a separate reusable
+workflow. It replaces the second manual dispatch with a validated human PR merge;
+it never merges PRs automatically. See [the contract and migration guide](merge-approved-delivery.md).
+The rules below referring to manual production apply describe the default profile.
+
 ## Available automation
 
 | File | Purpose | Mutation |
@@ -32,6 +37,8 @@ Wataridori does not build images. Tag-only references are rejected.
 | `reusable-dev-deploy.yml` | Plan, apply, and verify dev with OIDC | Cloud Run dev |
 | `reusable-promotion-pr.yml` | Verify dev and create/update a prod promotion PR | Git only |
 | `reusable-prod-apply.yml` | Manually plan, apply, and verify prod | Cloud Run prod |
+| `reusable-prod-merge.yml` | Opt-in reviewed merge admission, apply and verification | Cloud Run prod after human authorization |
+| `reusable-rollback-pr.yml` | Explicitly request a PR to a previously verified release | Git only |
 
 Reusable workflow files live directly under `.github/workflows/` in this
 repository. A consumer calls them with a full Wataridori commit SHA in
@@ -85,6 +92,11 @@ Direct same-repository Artifact Events also require the GitHub App to be
 allowed by the development branch ruleset. Keep human reviews mandatory for
 production manifest paths; the Artifact Event command itself refuses every
 `policy: manual` environment.
+
+Do not assume a branch-wide App bypass can be restricted to dev files. The
+merge-approved profile rejects bypassable production protection. Use reviewed
+dev update PRs or a separate manifest repository if your branch/ruleset layout
+cannot enforce both boundaries.
 
 ## Protected production Environment
 

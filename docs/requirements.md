@@ -87,10 +87,16 @@ The MVP GitHub flow is deliberately asymmetric:
 - successful dev apply may create or update a dev-to-prod promotion pull
   request only when promotion inspection is eligible
 - automation must never merge the promotion pull request
-- creating, updating, reviewing, or merging the pull request must not apply to
-  prod
-- prod apply is started only through an explicit manual workflow dispatch and
-  a protected GitHub Environment approval
+- the default `manual` delivery profile requires explicit workflow dispatch
+  and protected GitHub Environment approval; merging alone does not apply
+- the opt-in `merge-approved` delivery profile starts apply only after a human
+  merges an approved, fingerprinted release plan and live admission checks pass
+
+Delivery profiles are versioned separately in `.wataridori/delivery.json`.
+They do not change `policy: manual` or enable controller reconciliation of prod.
+See [merge-approved delivery](merge-approved-delivery.md) for the trust contract,
+configuration, limitations, and rollout procedure. Existing consumers are not
+automatically migrated. AI functionality is not part of this delivery change.
 
 The production apply workflow must not expose `--force` or accept an unmerged
 branch. GitHub-to-GCP authentication uses OIDC and Workload Identity Federation,
@@ -172,4 +178,4 @@ previous revision.
 - full Cloud Logging or Cloud Monitoring interfaces
 - a complex multi-tenant control plane before v1.0
 - a plugin platform
-- automatic production promotion or production apply
+- production promotion or apply without explicit human authorization

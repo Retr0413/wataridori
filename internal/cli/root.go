@@ -54,6 +54,7 @@ func newRootCmd() *cobra.Command {
 		newApplyCmd(g),
 		newPromoteCmd(g),
 		newPromotionCmd(g),
+		newDeliveryCmd(g),
 		newRollbackCmd(g),
 		newStatusCmd(g),
 		newInventoryCmd(g),
