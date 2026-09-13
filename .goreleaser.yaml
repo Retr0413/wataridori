@@ -2,7 +2,8 @@ version: 2
 project_name: wataridori
 
 git:
-  tag_sort: smartsemver
+  # smartsemver requires GoReleaser Pro; use the OSS-compatible Git sort key.
+  tag_sort: -version:refname
 
 builds:
   - main: ./cmd/wataridori
