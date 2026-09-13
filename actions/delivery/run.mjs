@@ -176,7 +176,8 @@ export async function report(api,repo,env,service) {
   const comments = await api.list(`repos/${repo}/issues/${admission.pr}/comments`);
   const previous = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body.startsWith(marker));
   const notified = `<!-- notified:${state} -->`;
-  const savedText = text + (previous?.body.includes(notified) ? '\n'+notified : '');
+  const notificationHistory = [...new Set(previous?.body.match(/<!-- notified:(verified|failed|blocked|superseded) -->/g) ?? [])];
+  const savedText = text + '\n' + notificationHistory.join('\n');
   if (previous) await api.request(`repos/${repo}/issues/comments/${previous.id}`,'PATCH',{body:savedText});
   else await api.request(`repos/${repo}/issues/${admission.pr}/comments`,'POST',{body:text});
   const name = `Wataridori delivery: ${env}/${service}`;
@@ -201,7 +202,7 @@ export async function report(api,repo,env,service) {
     requireThat(response.ok,'deployment result saved; webhook delivery failed');
     const updated = await api.list(`repos/${repo}/issues/${admission.pr}/comments`);
     const comment = updated.find(c => c.user?.login === 'github-actions[bot]' && c.body.startsWith(marker));
-    if (comment) await api.request(`repos/${repo}/issues/comments/${comment.id}`,'PATCH',{body:text+'\n'+notified});
+    if (comment) await api.request(`repos/${repo}/issues/comments/${comment.id}`,'PATCH',{body:savedText+'\n'+notified});
   }
 }
 

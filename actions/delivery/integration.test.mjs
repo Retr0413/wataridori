@@ -92,7 +92,10 @@ test('real Git admission rejects direct pushes, changed bytes, stale runs and ap
     await assert.rejects(report(api,'org/app','prod','api'),/webhook delivery failed/);
     assert.equal(checks[0].conclusion,'success','notification failure must not mark deployment failed');
     webhookOK=true;
-    await report(api,'org/app','prod','api');await report(api,'org/app','prod','api');
+    await report(api,'org/app','prod','api');
+    process.env.DELIVERY_STATE='merged_waiting_apply';await report(api,'org/app','prod','api');
+    process.env.DELIVERY_STATE='deploying';await report(api,'org/app','prod','api');
+    process.env.DELIVERY_STATE='verified';await report(api,'org/app','prod','api');
     assert.equal(notifications,2,'only failed notifications are retried');
     delete process.env.DELIVERY_WEBHOOK;
     // Unrelated default-branch updates do not invalidate the reviewed release.

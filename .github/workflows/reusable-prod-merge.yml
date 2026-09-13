@@ -68,9 +68,11 @@ jobs:
           set -euo pipefail
           [[ "$GITHUB_EVENT_NAME" == push ]]
           [[ "$WATARIDORI_REF" =~ ^[0-9a-f]{40}$ ]]
-          echo "ADMISSION_FILE=$RUNNER_TEMP/delivery-admission.json" >> "$GITHUB_ENV"
-          echo "VERIFICATION_FILE=$RUNNER_TEMP/delivery-verification.json" >> "$GITHUB_ENV"
-          echo "WATARIDORI_DB=$RUNNER_TEMP/wataridori-history.db" >> "$GITHUB_ENV"
+          {
+            echo "ADMISSION_FILE=$RUNNER_TEMP/delivery-admission.json"
+            echo "VERIFICATION_FILE=$RUNNER_TEMP/delivery-verification.json"
+            echo "WATARIDORI_DB=$RUNNER_TEMP/wataridori-history.db"
+          } >> "$GITHUB_ENV"
       - name: Mint read-only admission token
         id: admission_token
         if: inputs.admission_app_id != ''
