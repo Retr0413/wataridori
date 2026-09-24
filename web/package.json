@@ -9,21 +9,21 @@
     "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@bufbuild/protoc-gen-es": "^2.14.1",
+    "@bufbuild/protoc-gen-es": "^2.15.0",
     "@playwright/test": "^1.63.0",
-    "@types/node": "^26.4.1",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.3.0"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.14.1",
-    "@connectrpc/connect": "^2.1.2",
-    "@connectrpc/connect-web": "^2.1.2",
-    "@tanstack/react-query": "^5.102.8",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "@bufbuild/protobuf": "^2.15.0",
+    "@connectrpc/connect": "^2.2.0",
+    "@connectrpc/connect-web": "^2.2.0",
+    "@tanstack/react-query": "^5.103.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }
